@@ -1,0 +1,12 @@
+{
+  "name": "md1-copresence-bus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A shared bus ride, written as a log.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "SPEED=12 node server.js",
+    "test": "node --test"
+  }
+}
