@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BusGame, SEATS } from './game.js';
-import { NAMES, ACTIONS } from './data.js';
+import { BusGame, SEATS } from './docs/game.js';
+import { NAMES, ACTIONS } from './docs/data.js';
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -378,4 +378,52 @@ test('the bus has 25 seats, with a back bench of 5', () => {
   assert.equal(new Set(SEATS.map((s) => `${s.x},${s.y}`)).size, 25);
   assert.equal(SEATS.filter((s) => s.y === 5).length, 5);
   assert.equal(new BusGame().maxRiders, 25);
+});
+
+test('the same moment with another name gives one memory', () => {
+  const { game, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'sun']]);
+  const a = game.people.get('a');
+  game.addLine('cookie is too busy to notice tacky falling', [a], 'mix');
+  game.addLine("cookie is too busy to notice tomato falling", [a], 'mix');
+  game.addLine('a different moment', [a], 'mix');
+  leaveAtNextStop(game, 'a');
+  advance(MINUTE);
+  assert.deepEqual(game.view('a').memories.map((m) => m.text), ['cookie is too busy to notice tacky falling', 'a different moment']);
+});
+
+// --- no server: a bus with people on it, and a ride that survives a reload ---
+
+test('the bus arrives with fake riders already on it', () => {
+  const { game, advance } = setup({ fakeAtStart: 11 });
+  game.join('a');
+  assert.equal(game.riders.length, 11);
+  advance(MINUTE);
+  assert.equal(game.view('a').phase, 'bus');
+  assert.equal(game.view('a').seats.length, 12);
+  assert.deepEqual(game.view('a').log.map((l) => l.text), [`${game.view('a').name} entered the bus`]);
+});
+
+test('a saved ride carries on after a reload', () => {
+  const { game, clock, advance } = setup({ fakeAtStart: 3 });
+  game.join('a');
+  advance(MINUTE);
+  game.trigger('a');
+  const saved = JSON.parse(JSON.stringify(game.save()));
+
+  const reloaded = new BusGame({ now: () => clock.t, random: () => 0.5, stopEveryMs: [MINUTE, MINUTE], fakePerStop: 0 });
+  reloaded.load(saved);
+  reloaded.join('a');
+  assert.deepEqual(reloaded.view('a'), game.view('a'));
+  assert.equal(reloaded.lastMixAt, game.lastMixAt);
+  assert.equal(reloaded.trigger('a'), true);
+});
+
+test('a save from before any mix allows a mix straight away', () => {
+  const { game, clock } = setup();
+  game.join('a');
+  const reloaded = new BusGame({ now: () => clock.t });
+  reloaded.load(JSON.parse(JSON.stringify(game.save())));
+  assert.equal(reloaded.lastMixAt, -Infinity);
+  assert.equal(reloaded.queue[0], reloaded.people.get('a'));
 });

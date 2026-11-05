@@ -2,6 +2,7 @@
 import { NAMES, ACTIONS, MIXES, GENERIC_MIX } from './data.js';
 
 const ALL_NAMES = Object.values(NAMES).flat();
+const NAME_SET = new Set(ALL_NAMES);
 const ACTION_BY_ID = new Map(ACTIONS.map((a) => [a.id, a]));
 const ACTION_ORDER = new Map(ACTIONS.map((a, i) => [a.id, i]));
 
@@ -35,6 +36,7 @@ export class BusGame {
     mixCooldownMs = 10_000,
     maxRiders = 25,
     fakePerStop = 2,
+    fakeAtStart = 0,
     fakeActsEveryMs = [1 * MINUTE, 3 * MINUTE],
     now = Date.now,
     random = Math.random,
@@ -43,6 +45,7 @@ export class BusGame {
     this.rideLengthMs = rideLengthMs;
     this.mixCooldownMs = mixCooldownMs;
     this.fakePerStop = fakePerStop;
+    this.fakeAtStart = fakeAtStart;
     this.fakeActsEveryMs = fakeActsEveryMs;
     this.maxRiders = Math.min(maxRiders, SEATS.length);
     this.now = now;
@@ -71,7 +74,10 @@ export class BusGame {
     if (this.people.has(id)) return this.people.get(id);
     const person = this.newPerson(id);
     this.queue.push(person);
-    if (this.nextStopAt === null) this.nextStopAt = this.now() + this.timeBetween(this.stopEveryMs);
+    if (this.nextStopAt === null) {
+      this.nextStopAt = this.now() + this.timeBetween(this.stopEveryMs);
+      this.boardFakeRiders(this.fakeAtStart); // the bus arrives with people already on it
+    }
     return person;
   }
 
@@ -174,8 +180,8 @@ export class BusGame {
   // --- fake riders --------------------------------------------------------
 
   // Characters nobody controls. They take free seats and sit as neighbours.
-  boardFakeRiders() {
-    for (let i = 0; i < this.fakePerStop && this.riders.length < this.maxRiders; i++) {
+  boardFakeRiders(count = this.fakePerStop) {
+    for (let i = 0; i < count && this.riders.length < this.maxRiders; i++) {
       const person = this.newPerson(`fake-${this.joined}`);
       person.fake = true;
       person.nextActAt = this.now() + this.timeBetween(this.fakeActsEveryMs);
@@ -257,8 +263,8 @@ export class BusGame {
   keepMemories(person) {
     const ride = this.log.filter((line) => line.id >= person.firstLineId);
     const score = (line) => (line.kind === 'mix' ? 2 : 0) + (line.ids.includes(person.id) ? 1 : 0);
-    // The same words in any order are the same moment: "a and b hug", "b and a hug".
-    const sameWords = (text) => text.split(' ').sort().join(' ');
+    // The same words with other names, or in another order, are the same moment.
+    const sameWords = (text) => text.split(' ').filter((word) => !NAME_SET.has(word.replace(/'s$/, ''))).sort().join(' ');
     person.stops = ride.filter((line) => line.kind === 'stop').length;
     person.memories = ride
       // A mix already says what the plain action line before it said.
@@ -290,6 +296,30 @@ export class BusGame {
       color: people[0]?.color ?? null,
     });
     if (this.log.length > LOG_LIMIT) this.log.shift();
+  }
+
+  // --- saving, so a reload doesn't restart your ride ---------------------
+
+  save() {
+    return {
+      people: [...this.people.values()],
+      queue: this.queue.map((p) => p.id),
+      nextStopAt: this.nextStopAt,
+      log: this.log,
+      nextLineId: this.nextLineId,
+      lastMixAt: Number.isFinite(this.lastMixAt) ? this.lastMixAt : null,
+      joined: this.joined,
+    };
+  }
+
+  load(saved) {
+    this.people = new Map(saved.people.map((p) => [p.id, p]));
+    this.queue = saved.queue.map((id) => this.people.get(id));
+    this.nextStopAt = saved.nextStopAt;
+    this.log = saved.log;
+    this.nextLineId = saved.nextLineId;
+    this.lastMixAt = saved.lastMixAt ?? -Infinity;
+    this.joined = saved.joined;
   }
 
   // --- what one person sees ----------------------------------------------

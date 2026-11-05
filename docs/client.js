@@ -1,29 +1,27 @@
-// Draws whatever the server says. All the rules live on the server, in game.js.
-const $ = (id) => document.getElementById(id);
+// Runs the whole bus inside this browser tab: there is no server.
+// Everyone else on the bus is a fake rider, so every tab has its own bus.
+import { BusGame } from './game.js';
+import { ACTIONS as actions } from './data.js';
 
-// One id per tab, so you can test several riders with several tabs.
-function personId() {
-  let id = null;
-  try { id = sessionStorage.getItem('bus-id'); } catch {}
-  if (!id) {
-    id = Array.from({ length: 20 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
-    try { sessionStorage.setItem('bus-id', id); } catch {}
-  }
-  return id;
-}
-const id = personId();
+const $ = (id) => document.getElementById(id);
+const ME = 'me';
+const SAVE_KEY = 'the-bus';
+
+// Add ?speed=12 to the address to make all the waiting 12 times shorter.
+const speed = Number(new URLSearchParams(location.search).get('speed')) || 1;
+const MINUTE = 60_000 / speed;
+
+const game = new BusGame({
+  stopEveryMs: [2 * MINUTE, 3 * MINUTE],
+  rideLengthMs: [8 * MINUTE, 20 * MINUTE],
+  mixCooldownMs: 10_000 / speed,
+  fakeActsEveryMs: [1 * MINUTE, 3 * MINUTE],
+  fakeAtStart: 11,
+});
 
 let view = null;
-let clockOffset = 0;
-let actions = [];
 let lastLineId = 0;
 let renderedSeats = '';
-
-const post = (path, body = {}) => fetch(path, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ id, ...body }),
-});
 
 const formatTime = (ms) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -34,17 +32,12 @@ const formatBoardTime = (ms) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
   return seconds > 60 ? `${Math.ceil(seconds / 60)}min` : `${seconds}s`;
 };
-const serverNow = () => Date.now() + clockOffset;
 
 function makeShape(shape, color) {
   const el = document.createElement('span');
   el.className = `shape ${shape ?? ''}`;
   if (color) el.style.background = color;
   return el;
-}
-
-async function loadOptions() {
-  actions = (await (await fetch('/api/options')).json()).actions;
 }
 
 function fillTicket(ticket, name, actionId) {
@@ -208,7 +201,7 @@ function pullOutTicket(left) {
 // Runs every 250 ms, so the clocks tick between server messages.
 function renderClocks() {
   if (!view || !view.nextStopAt) return;
-  const left = view.nextStopAt - serverNow();
+  const left = view.nextStopAt - Date.now();
   if (view.phase === 'queue') {
     $('stop-time').textContent = formatBoardTime(left);
     pullOutTicket(left);
@@ -224,24 +217,41 @@ for (const button of document.querySelectorAll('.notify')) {
     refreshNotifyButtons();
   });
 }
-$('trigger').addEventListener('click', () => post('/api/trigger'));
+$('trigger').addEventListener('click', () => {
+  if (game.trigger(ME)) refresh();
+});
 
 // --- start --------------------------------------------------------------
 
-(async function start() {
-  refreshNotifyButtons();
-  await loadOptions();
-  const events = new EventSource(`/events?id=${id}`);
-  events.onmessage = (message) => {
-    const next = JSON.parse(message.data);
-    if (view?.phase === 'bus' && next.phase !== 'bus') {
-      lastLineId = 0;
-      renderedSeats = '';
-      $('log').replaceChildren();
-    }
-    view = next;
-    clockOffset = view.now - Date.now();
-    render();
-  };
-  setInterval(renderClocks, 250);
-})();
+// One save per tab: reloading keeps your ride, and a new tab is a new ride.
+function saveGame() {
+  try { sessionStorage.setItem(SAVE_KEY, JSON.stringify(game.save())); } catch {}
+}
+
+function loadGame() {
+  try {
+    const saved = sessionStorage.getItem(SAVE_KEY);
+    if (saved) game.load(JSON.parse(saved));
+  } catch {}
+}
+
+function refresh() {
+  const next = game.view(ME);
+  if (view?.phase === 'bus' && next.phase !== 'bus') {
+    lastLineId = 0;
+    renderedSeats = '';
+    $('log').replaceChildren();
+  }
+  view = next;
+  render();
+  saveGame();
+}
+
+refreshNotifyButtons();
+loadGame();
+game.join(ME);
+refresh();
+setInterval(() => {
+  if (game.update()) refresh();
+}, 200);
+setInterval(renderClocks, 250);
