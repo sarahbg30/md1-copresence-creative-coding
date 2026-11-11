@@ -3,7 +3,7 @@
 import { BusGame, SEATS } from './game.js';
 import { followTheWeather, forceSky } from './weather.js';
 import { ACTIONS as actions } from './data.js';
-import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawBusFromAbove, drawRoad, drawTicket } from './ascii.js';
+import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawDoubleDecker, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -174,7 +174,7 @@ function brake() {
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let frame = 0;
 
-// On a phone the side of the bus does not fit: it is drawn from above instead.
+// On a phone the long bus does not fit: it becomes a double decker.
 const phone = matchMedia('(max-width: 700px)');
 phone.addEventListener('change', () => {
   renderedSeats = '';
@@ -192,8 +192,7 @@ function renderSeats() {
 }
 
 function drawScene() {
-  $('vehicle').innerHTML = (phone.matches ? drawBusFromAbove : drawBus)(view.seats, SEATS);
-  $('road').hidden = phone.matches;
+  $('vehicle').innerHTML = (phone.matches ? drawDoubleDecker : drawBus)(view.seats, SEATS);
   drawMotion();
 }
 

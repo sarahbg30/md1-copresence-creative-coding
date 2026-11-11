@@ -187,28 +187,46 @@ export function drawBus(riders, allSeats, now = Date.now()) {
     .replaceAll('W', WHEEL_SPAN);
 }
 
-// The bus from above, driving up: the seats as they really are, 5 across with
-// the aisle in the middle. Narrow: for phones.
-const INSIDE = 5 * SLOT + 2;
-export const BUS_FROM_ABOVE_WIDTH = INSIDE + 4;
-export function drawBusFromAbove(riders, allSeats, now = Date.now()) {
+// A double decker, driving right: narrow enough for a phone. Each window
+// line has 7 seats. Downstairs: the front rows (y 0 to 2), with the stairs at
+// the back. Upstairs: rows 3 and 4 and the back bench.
+const DECK = 7 * SLOT;
+const DOUBLE_DECKER = [
+  `  ${'_'.repeat(DECK + 4)}  `,
+  ` |  ${'_'.repeat(DECK)}  | `,
+  ` | |${'P'.repeat(DECK)}| | `,
+  ` | |${'Q'.repeat(DECK)}| | `,
+  ` | |${'_'.repeat(DECK)}| | `,
+  ` |${'[the bus] '.padStart(DECK + 4)}| `,
+  ` |  ${'_'.repeat(DECK)}  | `,
+  ` | |${'R'.repeat(DECK)}| | `,
+  ` | |${'S'.repeat(DECK)}| | `,
+  ` | |${'_'.repeat(DECK)}| | `,
+  ` |____(W)${'_'.repeat(DECK - 12)}(W)_____| `,
+  `       '${' '.repeat(DECK - 12)}  '       `,
+];
+export const DOUBLE_DECKER_WIDTH = DOUBLE_DECKER[0].length;
+
+function deckSlot(seat) {
+  const far = seat.x >= 3;
+  const side = far ? seat.x - 3 : seat.x;
+  if (seat.y <= 2) return { part: far ? 'S' : 'R', index: 1 + (2 - seat.y) * 2 + side };
+  if (seat.y === 5) return { part: far ? 'Q' : 'P', index: far ? side : seat.x };
+  const bench = far ? 2 : 3; // the bench has 3 seats on the near side, 2 on the far side
+  return { part: far ? 'Q' : 'P', index: bench + (4 - seat.y) * 2 + side };
+}
+
+export function drawDoubleDecker(riders, allSeats, now = Date.now()) {
+  const windows = Object.fromEntries(['P', 'Q', 'R', 'S'].map((part) => [part, Array(7).fill(EMPTY_WINDOW)]));
   const bySeat = new Map(riders.map((rider) => [rider.seat, rider]));
-  const cell = (x, y) => {
-    const i = allSeats.findIndex((seat) => seat.x === x && seat.y === y);
-    return i < 0 ? '   :   ' : drawSeat(bySeat.get(i), i, now);
-  };
-  const rows = [0, 1, 2, 3, 4, 5].map((y) => {
-    const side = y === 0 || y === 4 ? WHEEL_SPAN : ' ';
-    return `${side}| ${[0, 1, 2, 3, 4].map((x) => cell(x, y)).join('')} |${side}`;
+  allSeats.forEach((seat, i) => {
+    const { part, index } = deckSlot(seat);
+    windows[part][index] = drawSeat(bySeat.get(i), i, now);
   });
-  return [
-    `  ${'_'.repeat(INSIDE)}  `,
-    ` /${' '.repeat(INSIDE)}\\ `,
-    ` |  (-_-)${'[the bus]'.padStart(INSIDE - 9)}  | `,
-    ` |${'- '.repeat(INSIDE).slice(0, INSIDE)}| `,
-    ...rows,
-    ` |${'_'.repeat(INSIDE)}| `,
-  ].join('\n');
+  const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].join(''));
+  return DOUBLE_DECKER.map((line) => ['P', 'Q', 'R', 'S'].reduce(fill, escape(line)))
+    .join('\n')
+    .replaceAll('W', WHEEL_SPAN);
 }
 
 // The road slides left while the bus drives right.
