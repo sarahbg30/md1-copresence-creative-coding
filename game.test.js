@@ -63,6 +63,14 @@ test('five people enter per stop, the others keep waiting', () => {
   assert.equal(game.view('f').isNext, true);
 });
 
+test('skipping the wait brings the bus right away', () => {
+  const { game } = setup();
+  game.join('a');
+  assert.equal(game.view('a').phase, 'queue');
+  assert.equal(game.skipWait(), true);
+  assert.equal(game.view('a').phase, 'bus');
+});
+
 test('arriving just before a stop still gets you on at that stop', () => {
   const { game, advance } = setup();
   game.join('a');

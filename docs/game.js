@@ -147,6 +147,13 @@ export class BusGame {
     return shortest + this.random() * (longest - shortest);
   }
 
+  // It's a simulation: you can skip the wait and the bus comes now.
+  skipWait() {
+    if (this.nextStopAt === null) return false;
+    this.nextStopAt = this.now();
+    return this.update();
+  }
+
   // Call often. Returns true when something happened.
   update() {
     const acted = this.letFakeRidersAct();

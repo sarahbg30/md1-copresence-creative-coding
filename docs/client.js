@@ -311,6 +311,11 @@ document.addEventListener('keydown', (event) => {
     document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }
 });
+// Skip the wait at the stop: the bus comes right away.
+$('skip').addEventListener('click', () => {
+  if (game.skipWait()) refresh();
+  renderClocks();
+});
 $('trigger').addEventListener('click', () => {
   if (game.trigger(ME)) refresh();
 });
