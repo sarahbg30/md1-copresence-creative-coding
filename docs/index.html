@@ -4,57 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>the bus</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Doto:wght@700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- THE STOP: frozen sky and road, also shown once you got off -->
-<div class="stop-scene" id="stop-scene" aria-hidden="true" hidden>
-  <div class="stop-road"></div>
-  <img class="shelter" src="images/shelter-still.png" alt="">
-  <img class="stop-sign" src="images/stop-sign-still.png" alt="">
-</div>
+<!-- Clouds behind everything. They drift while the bus drives. -->
+<pre class="sky" id="sky" aria-hidden="true"></pre>
+
+<!-- THE STOP: also shown once you got off -->
+<pre class="stop-scene" id="stop-scene" aria-hidden="true" hidden></pre>
 
 <main id="stop" class="page" hidden>
-  <p class="title" id="stop-status" hidden>the bus is full. you keep your place in the queue</p>
-  <div class="led-board" role="timer" aria-label="wait until the next stop">
-    <span>1</span><span>15</span><span class="led-where">the bus</span><span id="stop-time"></span>
-  </div>
-  <div class="ticket" id="stop-ticket" hidden>
-    <strong class="ticket-name"></strong>
-    <span class="ticket-action"></span>
-  </div>
-  <button type="button" class="notify" hidden>tell me when my stop is next</button>
+  <p id="stop-status" hidden>the bus is full. you keep your place in the queue</p>
+  <pre class="board" id="board" role="timer" aria-label="wait until the next stop"></pre>
+  <pre class="ticket" id="stop-ticket" hidden></pre>
+  <button type="button" class="notify" hidden>[ tell me when my stop is next ]</button>
 </main>
 
 <!-- THE BUS -->
 <main id="bus" class="bus" hidden>
-  <p class="notice" id="your-stop" role="status" hidden>your stop is next. you get off when the bus stops</p>
+  <p class="notice" id="your-stop" role="status" hidden>!! your stop is next. you get off when the bus stops !!</p>
   <ol class="log" id="log" aria-live="polite"></ol>
   <div class="controls">
     <button type="button" id="trigger"></button>
     <p class="clock">next stop in <span id="bus-time"></span></p>
-    <button type="button" class="notify" hidden>tell me when my stop is next</button>
+    <button type="button" class="notify" hidden>[ tell me when my stop is next ]</button>
   </div>
   <section class="scene" aria-label="the bus on the road">
-    <div class="road"></div>
-    <div class="vehicle">
-      <img class="moving" src="images/bus.gif" alt="">
-      <img class="still" src="images/bus-still.png" alt="">
-      <div class="windows" id="seats"></div>
-    </div>
+    <pre class="vehicle" id="vehicle"></pre>
+    <pre class="road" id="road"></pre>
   </section>
 </main>
 
 <!-- OFF THE BUS -->
 <main id="off" hidden>
-  <div class="ticket ticket-memories">
-    <div class="ticket-text">
-      <p id="off-summary"></p>
-      <ol class="memories" id="memories"></ol>
-    </div>
-  </div>
+  <pre class="ticket ticket-memories" id="memories-ticket"></pre>
 </main>
 
 <script type="module" src="client.js"></script>

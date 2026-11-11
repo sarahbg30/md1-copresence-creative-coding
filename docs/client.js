@@ -2,6 +2,7 @@
 // Everyone else on the bus is a fake rider, so every tab has its own bus.
 import { BusGame } from './game.js';
 import { ACTIONS as actions } from './data.js';
+import { SHAPE_CHAR, wrap, drawSky, drawStopScene, drawBoard, drawBus, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -33,19 +34,27 @@ const formatBoardTime = (ms) => {
   return seconds > 60 ? `${Math.ceil(seconds / 60)}min` : `${seconds}s`;
 };
 
-function makeShape(shape, color) {
-  const el = document.createElement('span');
-  el.className = `shape ${shape ?? ''}`;
-  if (color) el.style.background = color;
-  return el;
+const actionText = (actionId) => actions.find((a) => a.id === actionId)?.text ?? '';
+
+// The ticket you look at before boarding: your name and your action.
+function drawBoardingTicket() {
+  const rows = [{ text: '' }, { text: view.name, bold: true }, ...wrap(actionText(view.actionId), 28).map((text) => ({ text }))];
+  return drawTicket(rows, 28);
 }
 
-function fillTicket(ticket, name, actionId) {
-  const key = `${name}/${actionId}`;
-  if (ticket.dataset.key === key) return;
-  ticket.dataset.key = key;
-  ticket.querySelector('.ticket-name').textContent = name;
-  ticket.querySelector('.ticket-action').textContent = actions.find((a) => a.id === actionId)?.text ?? '';
+// The ticket after the ride, with the memories written on it.
+function drawMemoriesTicket() {
+  const width = 34;
+  const stops = view.stops === 1 ? '1 stop' : `${view.stops} stops`;
+  const rows = [{ text: '' }, ...wrap(`${view.name}, ${stops} on the bus`, width).map((text) => ({ text, bold: true }))];
+  const memories = view.memories.length
+    ? view.memories
+    : [{ text: 'nothing happened. you looked out of the window.', mine: false }];
+  for (const memory of memories) {
+    rows.push({ text: '' });
+    wrap(memory.text, width - 2).forEach((text, i) => rows.push({ text: `${i ? '  ' : '- '}${text}`, bold: memory.mine }));
+  }
+  return drawTicket(rows, width);
 }
 
 // --- the notification ----------------------------------------------------
@@ -82,6 +91,7 @@ function render() {
   $('stop-scene').hidden = view.phase === 'bus';
   $('bus').hidden = view.phase !== 'bus';
   $('off').hidden = view.phase !== 'off';
+  document.body.classList.toggle('riding', view.phase === 'bus');
 
   if (view.phase === 'queue') renderStop();
   if (view.phase === 'bus') renderBus();
@@ -95,12 +105,16 @@ function render() {
 
 function renderStop() {
   $('stop-status').hidden = !view.busFull;
-  fillTicket($('stop-ticket'), view.name, view.actionId);
+  const ticket = $('stop-ticket');
+  const key = `${view.name}/${view.actionId}`;
+  if (ticket.dataset.key !== key) {
+    ticket.dataset.key = key;
+    ticket.innerHTML = drawBoardingTicket();
+  }
 }
 
 function renderBus() {
-  const action = actions.find((a) => a.id === view.actionId);
-  $('trigger').textContent = action?.text ?? '';
+  $('trigger').textContent = `[ ${actionText(view.actionId)} ]`;
 
   $('your-stop').hidden = !view.yourStopIsNext;
   if (view.yourStopIsNext) tellAboutStop();
@@ -111,20 +125,7 @@ function renderBus() {
 }
 
 function renderOff() {
-  const stops = view.stops === 1 ? '1 stop' : `${view.stops} stops`;
-  $('off-summary').textContent = `${view.name}, ${stops} on the bus`;
-  const items = view.memories.map((memory) => {
-    const item = document.createElement('li');
-    item.className = [memory.kind, memory.mine ? 'mine' : ''].join(' ').trim();
-    item.textContent = memory.text;
-    return item;
-  });
-  if (!items.length) {
-    const quiet = document.createElement('li');
-    quiet.textContent = 'nothing happened. you looked out of the window.';
-    items.push(quiet);
-  }
-  $('memories').replaceChildren(...items);
+  $('memories-ticket').innerHTML = drawMemoriesTicket();
 }
 
 function appendLog(lines) {
@@ -136,9 +137,16 @@ function appendLog(lines) {
     lastLineId = line.id;
     const item = document.createElement('li');
     item.className = [line.kind, line.mine ? 'mine' : ''].join(' ').trim();
-    if (line.shape) item.append(makeShape(line.shape, line.color));
     const text = document.createElement('span');
-    text.textContent = line.text;
+    if (line.kind === 'stop') {
+      text.textContent = `- - - ${line.text} - - -`;
+    } else {
+      const glyph = document.createElement('span');
+      glyph.className = 'glyph';
+      glyph.textContent = line.kind === 'mix' ? '*' : SHAPE_CHAR[line.shape] ?? ' ';
+      item.append(glyph);
+      text.textContent = line.text;
+    }
     item.append(text);
     log.append(item);
     if (line.kind === 'stop') braked = true;
@@ -160,29 +168,28 @@ function brake() {
   stopTimer = setTimeout(() => document.body.classList.remove('stopped'), STOP_MS);
 }
 
-// Where a seat row starts in the window grid. The bus faces right, so row 0 is
-// at the front and the back bench (y = 5) is at the far left. Column 6 is the door.
-const firstWindowColumn = (y) => (y === 5 ? 1 : y === 4 ? 4 : 7 + (3 - y) * 2);
+// The bus and the road are redrawn when someone gets on or off, and a few
+// times a second while driving, so the wheels turn and the road slides by.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let frame = 0;
 
-// Riders sit in the bus windows. One side of the aisle is the top line of the
-// window, the other side is the bottom line.
 function renderSeats() {
   const key = JSON.stringify(view.seats);
   if (key === renderedSeats) return;
   renderedSeats = key;
-
-  const passengers = view.seats.map((person) => {
-    const cell = document.createElement('div');
-    cell.className = person.me ? 'passenger me' : 'passenger';
-    cell.title = person.name;
-    const farSide = person.x >= 3;
-    cell.style.gridColumn = firstWindowColumn(person.y) + (farSide ? person.x - 3 : person.x);
-    cell.style.gridRow = farSide ? 2 : 1;
-    cell.append(makeShape(person.shape, person.color));
-    return cell;
-  });
-  $('seats').replaceChildren(...passengers);
+  drawScene();
 }
+
+function drawScene() {
+  $('vehicle').innerHTML = drawBus(view.seats, frame);
+  $('road').textContent = drawRoad(frame);
+}
+
+setInterval(() => {
+  if (reduceMotion || view?.phase !== 'bus' || document.body.classList.contains('stopped')) return;
+  frame++;
+  drawScene();
+}, 140);
 
 // In the last 10 seconds before you board, the ticket comes out of your pocket,
 // you look at it, and it goes back in. The animation in style.css lasts 10 seconds.
@@ -203,7 +210,7 @@ function renderClocks() {
   if (!view || !view.nextStopAt) return;
   const left = view.nextStopAt - Date.now();
   if (view.phase === 'queue') {
-    $('stop-time').textContent = formatBoardTime(left);
+    $('board').textContent = drawBoard(formatBoardTime(left));
     pullOutTicket(left);
   }
   if (view.phase === 'bus') $('bus-time').textContent = formatTime(left);
@@ -247,6 +254,8 @@ function refresh() {
   saveGame();
 }
 
+$('sky').textContent = drawSky();
+$('stop-scene').textContent = drawStopScene();
 refreshNotifyButtons();
 loadGame();
 game.join(ME);
