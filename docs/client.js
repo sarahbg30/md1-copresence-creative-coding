@@ -180,7 +180,7 @@ function brake() {
   void document.body.offsetWidth; // restarts the animation
   document.body.classList.add('braking', 'stopped');
   clearTimeout(stopTimer);
-  stopTimer = setTimeout(() => document.body.classList.remove('stopped'), STOP_MS);
+  stopTimer = setTimeout(() => document.body.classList.remove('stopped', 'braking'), STOP_MS);
 }
 
 // The bus and the road are redrawn when someone gets on or off, and a few
