@@ -1,16 +1,19 @@
-/* Everything is text: one monospace font, black on white strips, over a pastel sky
+/* Everything is text: one monospace font, straight on a pastel sky
    whose colours come from the real weather (weather.js). */
+@property --sky-blue { syntax: '<color>'; inherits: true; initial-value: #9fcaf2; }
 @property --sky-top { syntax: '<color>'; inherits: true; initial-value: #c3e0fa; }
 @property --sky-bottom { syntax: '<color>'; inherits: true; initial-value: #f8f2fb; }
 
 :root {
   color-scheme: light;
-  --paper: #fff;
+  --paper: var(--sky-bottom); /* the colour of text turned inside out */
+  --blur: blur(5px); /* hides the clouds behind text, keeps the sky's colour */
   --ink: #111;
   --cloud: rgba(40, 50, 90, 0.32);
   --mono: "Courier New", Courier, monospace;
-  background: linear-gradient(var(--sky-top), var(--sky-bottom)) fixed;
-  transition: --sky-top 4s, --sky-bottom 4s;
+  /* Always a band of blue at the very top, then the weather's colours. */
+  background: linear-gradient(var(--sky-blue), var(--sky-top) 40%, var(--sky-bottom)) fixed;
+  transition: --sky-blue 4s, --sky-top 4s, --sky-bottom 4s;
 }
 
 * { box-sizing: border-box; }
@@ -42,9 +45,8 @@ button:hover, button:active { background: var(--ink); color: var(--paper); }
 button:focus-visible { outline: 2px dashed var(--ink); outline-offset: 3px; }
 button.notify { font-weight: 400; font-size: 15px; }
 
-/* Text sits on a strip of white so the clouds behind never get in the way. */
-.log span, .clock, .notice, button, #stop-status { background: var(--paper); }
-button:hover, button:active { background: var(--ink); }
+/* Behind text, the clouds are blurred away so they never get in the way. */
+.log span, .clock, .notice, button, #stop-status { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
 
 /* Where the colours come from, small in the corner. */
 .weather {
@@ -53,7 +55,8 @@ button:hover, button:active { background: var(--ink); }
   right: 8px;
   z-index: 2;
   margin: 0;
-  background: var(--paper);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
   font-size: 12px;
 }
 
@@ -90,9 +93,9 @@ body.riding .weather { display: none; }
   text-align: center;
 }
 #stop-status { margin: 0; font-weight: 700; }
-.board { background: var(--paper); font-size: min(20px, calc((100vw - 32px) / (36 * 0.6))); font-weight: 700; }
+.board { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: min(20px, calc((100vw - 32px) / (36 * 0.6))); font-weight: 700; }
 
-.ticket { background: var(--paper); text-align: left; }
+.ticket { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); text-align: left; }
 .ticket b { font-weight: 700; }
 
 /* For the 10 seconds before you board, the ticket comes out of your pocket. */
@@ -178,12 +181,12 @@ body.riding .weather { display: none; }
   /* The bus is 121 characters wide. On a phone it stays readable and you can slide it. */
   --bus-size: clamp(9px, calc((100vw - 16px) / (121 * 0.6)), 16px);
 }
-.vehicle { position: relative; z-index: 1; background: var(--paper); font-size: var(--bus-size); }
+.vehicle { position: relative; z-index: 1; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: var(--bus-size); }
 .road { align-self: stretch; overflow: hidden; font-size: var(--bus-size); }
 .scene { align-items: safe center; }
 .me { background: var(--ink); color: var(--paper); }
 .vehicle .seat { padding: 0; font: inherit; color: inherit; }
-.hint { margin: 0 0 4px; background: var(--paper); font-size: 13px; }
+.hint { margin: 0 0 4px; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: 13px; }
 
 /* The bus jolts at each stop. */
 body.braking .vehicle { animation: brake 0.6s ease-out; }

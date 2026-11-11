@@ -156,14 +156,17 @@ export class BusGame {
   }
 
   // You get off at the first stop after your time on the bus is up.
+  // A stop is a single line in the log, so the story of the ride stays on screen:
+  // "next stop. aya and shy got off. tony got on".
   arriveAtStop() {
     const now = this.now();
     const hadRiders = this.riders.length > 0;
     const leaving = this.riders.filter((person) => person.leaveAt <= now);
+    const off = [];
+    const on = [];
 
-    if (hadRiders) this.addLine('next stop', [], 'stop');
     for (const person of leaving) {
-      this.addLine(`${person.name} got off`, [person]);
+      off.push(person);
       this.keepMemories(person);
       person.phase = 'off';
       person.seat = null;
@@ -173,34 +176,47 @@ export class BusGame {
     // Whoever is next boards, as long as there are free seats. The rest keep their place.
     for (const person of this.queue.slice(0, BOARDING_PER_STOP)) {
       if (this.realRiders.length >= this.maxRiders) break;
-      if (this.riders.length >= this.maxRiders) this.makeRoom();
-      this.board(person);
+      if (this.riders.length >= this.maxRiders) off.push(this.makeRoom());
+      on.push(this.board(person));
     }
-    if (this.realRiders.length > 0) this.boardFakeRiders();
+    if (this.realRiders.length > 0) on.push(...this.boardFakeRiders());
+
+    if (hadRiders || on.length) {
+      const list = (people) => people.length < 2
+        ? people.map((p) => p.name).join('')
+        : `${people.slice(0, -1).map((p) => p.name).join(', ')} and ${people.at(-1).name}`;
+      const parts = [hadRiders ? 'next stop' : 'the bus arrives'];
+      if (off.length) parts.push(`${list(off)} got off`);
+      if (on.length) parts.push(`${list(on)} got on`);
+      this.addLine(parts.join('. '), [...off, ...on], 'stop');
+    }
 
     this.nextStopAt = now + this.timeBetween(this.stopEveryMs);
     this.stopIfEmpty();
   }
 
+  // Your log starts with the stop line where you got on, written just after this.
   board(person) {
     this.queue = this.queue.filter((p) => p !== person);
     person.phase = 'bus';
     person.seat = this.pickSeat();
     person.leaveAt = this.now() + this.timeBetween(this.rideLengthMs);
     person.firstLineId = this.nextLineId;
-    this.addLine(`${person.name} entered the bus`, [person]);
+    return person;
   }
 
   // --- fake riders --------------------------------------------------------
 
   // Characters nobody controls. They take free seats and sit as neighbours.
   boardFakeRiders(count = this.fakePerStop) {
+    const boarded = [];
     for (let i = 0; i < count && this.riders.length < this.maxRiders; i++) {
       const person = this.newPerson(`fake-${this.joined}`);
       person.fake = true;
       person.nextActAt = this.now() + this.timeBetween(this.fakeActsEveryMs);
-      this.board(person);
+      boarded.push(this.board(person));
     }
+    return boarded;
   }
 
   letFakeRidersAct() {
@@ -215,8 +231,8 @@ export class BusGame {
   // A real person always gets a seat before a fake one.
   makeRoom() {
     const person = this.riders.find((p) => p.fake);
-    this.addLine(`${person.name} got off`, [person]);
     this.people.delete(person.id);
+    return person;
   }
 
   stopIfEmpty() {
@@ -279,7 +295,8 @@ export class BusGame {
     const score = (line) => (line.kind === 'mix' ? 2 : 0) + (line.ids.includes(person.id) ? 1 : 0);
     // The same words with other names, or in another order, are the same moment.
     const sameWords = (text) => text.split(' ').filter((word) => !NAME_SET.has(word.replace(/'s$/, ''))).sort().join(' ');
-    person.stops = ride.filter((line) => line.kind === 'stop').length;
+    // The stops after the one you got on at, and the one you are getting off at now.
+    person.stops = ride.filter((line) => line.kind === 'stop' && line.id > person.firstLineId).length + 1;
     person.memories = ride
       // A mix already says what the plain action line before it said.
       .filter((line, i) => line.kind === 'mix' || (line.kind === 'action' && ride[i + 1]?.kind !== 'mix'))

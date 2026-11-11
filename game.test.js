@@ -310,7 +310,7 @@ test('fake riders get off when their time is up', () => {
   assert.equal(game.people.has(fake.id), true);
   advance(MINUTE);
   assert.equal(game.people.has(fake.id), false);
-  assert.ok(lines(game).includes(`${fake.name} got off`));
+  assert.ok(lines(game).some((line) => line.startsWith('next stop') && line.includes(`${fake.name} got off`)));
 });
 
 test('a real person takes the seat of a fake rider when the bus is full', () => {
@@ -356,7 +356,7 @@ test('riders only see the log from the moment they boarded', () => {
   give(game, 'b', 'iris', 'read');
   advance(MINUTE);
   const seen = game.view('b').log.map((l) => l.text);
-  assert.deepEqual(seen, ['iris entered the bus']);
+  assert.deepEqual(seen, ['next stop. iris got on']);
 });
 
 test('after getting off the experience is over, even if you reload', () => {
@@ -401,7 +401,7 @@ test('the bus arrives with fake riders already on it', () => {
   advance(MINUTE);
   assert.equal(game.view('a').phase, 'bus');
   assert.equal(game.view('a').seats.length, 12);
-  assert.deepEqual(game.view('a').log.map((l) => l.text), [`${game.view('a').name} entered the bus`]);
+  assert.deepEqual(game.view('a').log.map((l) => l.text), [`next stop. ${game.view('a').name} got on`]);
 });
 
 test('a saved ride carries on after a reload', () => {
@@ -469,4 +469,19 @@ test('doing your action is remembered, so the bus can show your arms', () => {
   game.trigger('a');
   assert.equal(game.view('a').seats[0].actedAt, clock.t);
   assert.equal(game.view('a').seats[0].actionId, 'wave');
+});
+
+test('a stop is one line, so the story of the ride stays on screen', () => {
+  const { game, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'wave'], ['b', 'iris', 'sun'], ['c', 'shy', 'read']]);
+  assert.deepEqual(lines(game), ['the bus arrives. cookie, iris and shy got on']);
+  leaveAtNextStop(game, 'a');
+  leaveAtNextStop(game, 'b');
+  game.join('d');
+  give(game, 'd', 'aya', 'bar');
+  advance(MINUTE);
+  assert.equal(lines(game).at(-1), 'next stop. cookie and iris got off. aya got on');
+  assert.equal(game.view('a').stops, 1);
+  advance(MINUTE);
+  assert.equal(lines(game).at(-1), 'next stop');
 });
