@@ -139,11 +139,13 @@ export const WHEEL = ['-', '\\', '|', '/'];
 // How long arms stay out after doing your action.
 export const ARMS_MS = 4000;
 
-// The back bench has 5 seats in a row, all in the near back window.
+// The back bench has 5 seats in a row, in the near back window. The last
+// row before it (y = 4) is in the far back window, with a gap for the aisle.
 // The front windows have 8 (4 rows of 2). Row 0 is at the front, so it is
 // drawn at the right end of the front windows.
 function windowSlot(seat) {
   if (seat.y === 5) return { part: 'A', index: seat.x };
+  if (seat.y === 4) return { part: 'C', index: seat.x };
   const farSide = seat.x >= 3;
   const index = (3 - seat.y) * 2 + (farSide ? seat.x - 3 : seat.x);
   return { part: farSide ? 'D' : 'B', index };
@@ -164,20 +166,49 @@ export const armsKey = (riders, now = Date.now()) =>
 const EMPTY_WINDOW = ' '.repeat(SLOT);
 
 // Riders are faces. Free seats are buttons: click one to sit there.
+function drawSeat(rider, i, now) {
+  return rider
+    ? `<span class="${rider.me ? 'rider me' : 'rider'}" title="${escape(rider.me ? `you (${rider.name})` : rider.name)}">${escape(drawFace(rider, now))}</span>`
+    : `<button type="button" class="seat" data-seat="${i}" title="sit here" aria-label="sit here">${'_'.padStart(4).padEnd(SLOT)}</button>`;
+}
+const WHEEL_SPAN = '<span class="wheel">-</span>';
+
+// The bus from the side, driving right. Wide: for computers.
 export function drawBus(riders, allSeats, now = Date.now()) {
   const windows = { A: Array(5).fill(EMPTY_WINDOW), C: Array(5).fill(EMPTY_WINDOW), B: Array(8).fill(EMPTY_WINDOW), D: Array(8).fill(EMPTY_WINDOW) };
   const bySeat = new Map(riders.map((rider) => [rider.seat, rider]));
   allSeats.forEach((seat, i) => {
     const { part, index } = windowSlot(seat);
-    const rider = bySeat.get(i);
-    windows[part][index] = rider
-      ? `<span class="${rider.me ? 'rider me' : 'rider'}" title="${escape(rider.me ? `you (${rider.name})` : rider.name)}">${escape(drawFace(rider, now))}</span>`
-      : `<button type="button" class="seat" data-seat="${i}" title="sit here" aria-label="sit here">${'_'.padStart(4).padEnd(SLOT)}</button>`;
+    windows[part][index] = drawSeat(bySeat.get(i), i, now);
   });
   const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].join(''));
   return BUS.map((line) => ['A', 'B', 'C', 'D'].reduce(fill, escape(line)))
     .join('\n')
-    .replaceAll('W', '<span class="wheel">-</span>');
+    .replaceAll('W', WHEEL_SPAN);
+}
+
+// The bus from above, driving up: the seats as they really are, 5 across with
+// the aisle in the middle. Narrow: for phones.
+const INSIDE = 5 * SLOT + 2;
+export const BUS_FROM_ABOVE_WIDTH = INSIDE + 4;
+export function drawBusFromAbove(riders, allSeats, now = Date.now()) {
+  const bySeat = new Map(riders.map((rider) => [rider.seat, rider]));
+  const cell = (x, y) => {
+    const i = allSeats.findIndex((seat) => seat.x === x && seat.y === y);
+    return i < 0 ? '   :   ' : drawSeat(bySeat.get(i), i, now);
+  };
+  const rows = [0, 1, 2, 3, 4, 5].map((y) => {
+    const side = y === 0 || y === 4 ? WHEEL_SPAN : ' ';
+    return `${side}| ${[0, 1, 2, 3, 4].map((x) => cell(x, y)).join('')} |${side}`;
+  });
+  return [
+    `  ${'_'.repeat(INSIDE)}  `,
+    ` /${' '.repeat(INSIDE)}\\ `,
+    ` |  (-_-)${'[the bus]'.padStart(INSIDE - 9)}  | `,
+    ` |${'- '.repeat(INSIDE).slice(0, INSIDE)}| `,
+    ...rows,
+    ` |${'_'.repeat(INSIDE)}| `,
+  ].join('\n');
 }
 
 // The road slides left while the bus drives right.

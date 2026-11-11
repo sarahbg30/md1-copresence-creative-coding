@@ -169,6 +169,10 @@ button.notify { font-weight: 400; font-size: 15px; }
 .vehicle { position: relative; z-index: 1; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: var(--bus-size); }
 .road { align-self: stretch; overflow: hidden; font-size: var(--bus-size); }
 .scene { align-items: safe center; }
+/* On a phone the bus is seen from above, 41 characters wide. */
+@media (max-width: 700px) {
+  .scene { --bus-size: min(16px, calc((100vw - 16px) / (41 * 0.6))); }
+}
 .me { background: var(--ink); color: var(--paper); }
 .vehicle .seat { padding: 0; font: inherit; color: inherit; }
 .hint { margin: 0 0 4px; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: 13px; }

@@ -3,7 +3,7 @@
 import { BusGame, SEATS } from './game.js';
 import { followTheWeather, forceSky } from './weather.js';
 import { ACTIONS as actions } from './data.js';
-import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawRoad, drawTicket } from './ascii.js';
+import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawBusFromAbove, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -174,18 +174,26 @@ function brake() {
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let frame = 0;
 
+// On a phone the side of the bus does not fit: it is drawn from above instead.
+const phone = matchMedia('(max-width: 700px)');
+phone.addEventListener('change', () => {
+  renderedSeats = '';
+  if (view?.phase === 'bus') renderSeats();
+});
+
 function renderSeats() {
-  const key = JSON.stringify(view.seats) + armsKey(view.seats);
+  const key = JSON.stringify(view.seats) + armsKey(view.seats) + phone.matches;
   if (key === renderedSeats) return;
   const firstDraw = !renderedSeats;
   renderedSeats = key;
   drawScene();
-  // On a phone the bus is wider than the screen: start with you in the middle.
+  // If the bus is still wider than the screen, start with you in the middle.
   if (firstDraw) document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 function drawScene() {
-  $('vehicle').innerHTML = drawBus(view.seats, SEATS);
+  $('vehicle').innerHTML = (phone.matches ? drawBusFromAbove : drawBus)(view.seats, SEATS);
+  $('road').hidden = phone.matches;
   drawMotion();
 }
 

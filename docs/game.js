@@ -130,14 +130,13 @@ export class BusGame {
   }
 
   // Change seat, to be next to someone else. Only free seats.
+  // It is not written in the story: only the faces in the bus move.
   move(id, seat) {
     const person = this.people.get(id);
     if (!person || person.phase !== 'bus') return false;
     if (!Number.isInteger(seat) || seat < 0 || seat >= SEATS.length) return false;
     if (this.riders.some((p) => p.seat === seat)) return false;
     person.seat = seat;
-    const neighbour = this.closestTo(person);
-    this.addLine(neighbour ? `${person.name} moves next to ${neighbour.name}` : `${person.name} moves to an empty seat`, [person]);
     return true;
   }
 
