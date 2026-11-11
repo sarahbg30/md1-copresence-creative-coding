@@ -37,7 +37,7 @@ test('you get a ticket when you arrive, without doing anything', () => {
   const { game, advance } = setup({ random: Math.random });
   game.join('a');
   const a = game.view('a');
-  assert.ok(Object.values(NAMES).flat().includes(a.name));
+  assert.ok(Object.values(NAMES).flat().map((name) => name.toUpperCase()).includes(a.name));
   assert.ok(ACTIONS.some((action) => action.id === a.actionId));
   advance(MINUTE);
   assert.equal(game.view('a').phase, 'bus');

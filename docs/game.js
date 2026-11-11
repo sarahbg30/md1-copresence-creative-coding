@@ -1,8 +1,9 @@
 // The rules of the bus. No network code here, so the rules can be tested alone.
 import { NAMES, ACTIONS, MIXES, GENERIC_MIX, HEADS, EYES, MOUTHS } from './data.js';
 
-const ALL_NAMES = Object.values(NAMES).flat();
-const NAME_SET = new Set(ALL_NAMES);
+// Names are written in capitals: COOKIE, TIGER...
+const ALL_NAMES = Object.values(NAMES).flat().map((name) => name.toUpperCase());
+const NAME_SET = new Set(ALL_NAMES.map((name) => name.toLowerCase()));
 const ACTION_BY_ID = new Map(ACTIONS.map((a) => [a.id, a]));
 const ACTION_ORDER = new Map(ACTIONS.map((a, i) => [a.id, i]));
 
@@ -300,7 +301,7 @@ export class BusGame {
     const ride = this.log.filter((line) => line.id >= person.firstLineId);
     const score = (line) => (line.kind === 'mix' ? 2 : 0) + (line.ids.includes(person.id) ? 1 : 0);
     // The same words with other names, or in another order, are the same moment.
-    const sameWords = (text) => text.split(' ').filter((word) => !NAME_SET.has(word.replace(/'s$/, ''))).sort().join(' ');
+    const sameWords = (text) => text.split(' ').filter((word) => !NAME_SET.has(word.replace(/'s$/, '').toLowerCase())).sort().join(' ');
     // The stops after the one you got on at, and the one you are getting off at now.
     person.stops = ride.filter((line) => line.kind === 'stop' && line.id > person.firstLineId).length + 1;
     person.memories = ride
