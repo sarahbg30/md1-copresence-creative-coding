@@ -48,21 +48,6 @@ button.notify { font-weight: 400; font-size: 15px; }
 /* Behind text, the clouds are blurred away so they never get in the way. */
 .log span, .clock, .notice, button, #stop-status { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
 
-/* Where the colours come from, small in the corner. */
-.weather {
-  position: fixed;
-  top: 6px;
-  right: 8px;
-  z-index: 2;
-  margin: 0;
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  font-size: 12px;
-}
-
-/* On the bus the corner belongs to "your stop is next". */
-body.riding .weather { display: none; }
-
 /* --- the sky ------------------------------------------------------------ */
 .sky {
   position: fixed;

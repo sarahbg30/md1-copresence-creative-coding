@@ -44,15 +44,12 @@ function pickSky(current, daily) {
 async function updateSky() {
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${PLACE.latitude}&longitude=${PLACE.longitude}`
-      + '&current=weather_code,is_day,temperature_2m&daily=sunrise,sunset&timezone=auto&forecast_days=1';
+      + '&current=weather_code,is_day&daily=sunrise,sunset&timezone=auto&forecast_days=1';
     const data = await (await fetch(url)).json();
-    const { sky, words } = pickSky(data.current, data.daily);
+    const { sky } = pickSky(data.current, data.daily);
     const root = document.documentElement.style;
     root.setProperty('--sky-top', sky[0]);
     root.setProperty('--sky-bottom', sky[1]);
-    const label = document.getElementById('weather');
-    label.textContent = `${PLACE.name}: ${words}, ${Math.round(data.current.temperature_2m)}°C`;
-    label.hidden = false;
   } catch {
     // No weather: the sky keeps its default pastel blue.
   }
