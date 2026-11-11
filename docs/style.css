@@ -129,11 +129,11 @@ button.notify { font-weight: 400; font-size: 15px; }
 }
 @keyframes blink { 50% { visibility: hidden; } }
 
-/* The clock and the story above, the bus in the middle, what you can do below.
-   The top and the actions share the space equally, so the bus sits centred. */
-.top { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-/* The bus never moves: the space above and below it is shared equally,
-   whatever text is in it. */
+/* The clock and the story above, then the bus, then what you can do. */
+.top { flex: 3 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+/* The bus never moves: the text gets the top three quarters of the free space,
+   your action the last quarter, whatever text is in them. So the bus sits
+   around three quarters of the way down the page. */
 .log {
   flex: 0 1 auto;
   width: 100%;
