@@ -10,6 +10,21 @@ export const NAMES = {
   adjectives: ['shy', 'tacky', 'mysterious', 'happy', 'crazy', 'jazzy', 'tomodachi'],
 };
 
+// Riders are drawn as faces in the bus windows: (o_o). These are the insides, 3 characters each.
+export const FACES = ['o_o', '^_^', '-_-', 'O_O', '>_<', '._.', '=_=', 'x_x', '*_*', 'u_u', 'T_T', '@_@', '0_0', '~_~', '>_>', '<_<', 'n_n', 'v_v', 'q_p', 'e_e'];
+
+// For a few seconds after doing their action, riders show arms or a prop.
+// X is the face. Each pose is 5 characters before X is replaced.
+export const POSES = {
+  sun: '\\(X)/', // arms up to the sun
+  rain: ' (X)~', // a finger on the rain
+  read: '[(X)]', // behind a book
+  think: ' (X)?',
+  bar: '\\(X)\\', // flailing
+  wave: ' (X)/',
+  photo: ' (X)#', // the camera
+};
+
 // "you" in an action is replaced by the closest person, or by "nobody".
 export const ACTIONS = [
   { id: 'sun', category: 'contemplates', text: 'contemplates the sun' },

@@ -427,3 +427,46 @@ test('a save from before any mix allows a mix straight away', () => {
   assert.equal(reloaded.lastMixAt, -Infinity);
   assert.equal(reloaded.queue[0], reloaded.people.get('a'));
 });
+
+// --- changing seat ---
+
+test('you can move to a free seat and then act with your new neighbour', () => {
+  const { game, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'wave'], ['b', 'iris', 'sun']]);
+  game.people.get('a').seat = 0;
+  game.people.get('b').seat = 24;
+  assert.equal(game.move('a', 23), true);
+  assert.equal(game.people.get('a').seat, 23);
+  assert.ok(lines(game).includes('cookie moves next to iris'));
+  game.trigger('a');
+  assert.ok(lines(game).includes('cookie waves at iris'));
+});
+
+test('you cannot move to a taken seat, a seat that does not exist, or before boarding', () => {
+  const { game, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'wave'], ['b', 'iris', 'sun']]);
+  game.join('c');
+  const taken = game.people.get('b').seat;
+  assert.equal(game.move('a', taken), false);
+  assert.equal(game.move('a', 25), false);
+  assert.equal(game.move('a', 1.5), false);
+  assert.equal(game.move('c', 10), false);
+});
+
+test('moving far from everyone says so', () => {
+  const { game, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'wave'], ['b', 'iris', 'sun']]);
+  game.people.get('a').seat = 0;
+  game.people.get('b').seat = 1;
+  assert.equal(game.move('a', 24), true);
+  assert.ok(lines(game).includes('cookie moves to an empty seat'));
+});
+
+test('doing your action is remembered, so the bus can show your arms', () => {
+  const { game, clock, advance } = setup();
+  putOnBus(game, advance, [['a', 'cookie', 'wave']]);
+  assert.equal(game.view('a').seats[0].actedAt, null);
+  game.trigger('a');
+  assert.equal(game.view('a').seats[0].actedAt, clock.t);
+  assert.equal(game.view('a').seats[0].actionId, 'wave');
+});

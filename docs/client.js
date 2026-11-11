@@ -1,8 +1,9 @@
 // Runs the whole bus inside this browser tab: there is no server.
 // Everyone else on the bus is a fake rider, so every tab has its own bus.
-import { BusGame } from './game.js';
+import { BusGame, SEATS } from './game.js';
+import { followTheWeather, forceSky } from './weather.js';
 import { ACTIONS as actions } from './data.js';
-import { SHAPE_CHAR, wrap, drawSky, drawStopScene, drawBoard, drawBus, drawRoad, drawTicket } from './ascii.js';
+import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -39,7 +40,7 @@ const actionText = (actionId) => actions.find((a) => a.id === actionId)?.text ??
 // The ticket you look at before boarding: your name and your action.
 function drawBoardingTicket() {
   const rows = [{ text: '' }, { text: view.name, bold: true }, ...wrap(actionText(view.actionId), 28).map((text) => ({ text }))];
-  return drawTicket(rows, 28);
+  return drawTicket('your ticket', rows, 28);
 }
 
 // The ticket after the ride, with the memories written on it.
@@ -54,7 +55,7 @@ function drawMemoriesTicket() {
     rows.push({ text: '' });
     wrap(memory.text, width - 2).forEach((text, i) => rows.push({ text: `${i ? '  ' : '- '}${text}`, bold: memory.mine }));
   }
-  return drawTicket(rows, width);
+  return drawTicket('terminal stop', rows, width);
 }
 
 // --- the notification ----------------------------------------------------
@@ -143,7 +144,7 @@ function appendLog(lines) {
     } else {
       const glyph = document.createElement('span');
       glyph.className = 'glyph';
-      glyph.textContent = line.kind === 'mix' ? '*' : SHAPE_CHAR[line.shape] ?? ' ';
+      glyph.textContent = line.kind === 'mix' ? '  *  ' : line.face ? `(${line.face})` : '     ';
       item.append(glyph);
       text.textContent = line.text;
     }
@@ -174,14 +175,24 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let frame = 0;
 
 function renderSeats() {
-  const key = JSON.stringify(view.seats);
+  const key = JSON.stringify(view.seats) + armsKey(view.seats);
   if (key === renderedSeats) return;
+  const firstDraw = !renderedSeats;
   renderedSeats = key;
   drawScene();
+  // On a phone the bus is wider than the screen: start with you in the middle.
+  if (firstDraw) document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'center', block: 'nearest' });
 }
 
 function drawScene() {
-  $('vehicle').innerHTML = drawBus(view.seats, frame);
+  $('vehicle').innerHTML = drawBus(view.seats, SEATS);
+  drawMotion();
+}
+
+// Only the wheels and the road change while driving, so the seats you can
+// click are never replaced under your finger.
+function drawMotion() {
+  for (const wheel of document.querySelectorAll('.wheel')) wheel.textContent = WHEEL[frame % WHEEL.length];
   $('road').textContent = drawRoad(frame);
 }
 
@@ -206,9 +217,11 @@ function driftSky(time) {
 if (!reduceMotion) requestAnimationFrame(driftSky);
 
 setInterval(() => {
-  if (reduceMotion || view?.phase !== 'bus' || document.body.classList.contains('stopped')) return;
+  if (view?.phase !== 'bus') return;
+  renderSeats(); // arms go back down after a few seconds
+  if (reduceMotion || document.body.classList.contains('stopped')) return;
   frame++;
-  drawScene();
+  drawMotion();
 }, 140);
 
 // In the last 10 seconds before you board, the ticket comes out of your pocket,
@@ -244,6 +257,11 @@ for (const button of document.querySelectorAll('.notify')) {
     refreshNotifyButtons();
   });
 }
+// Click a free seat to sit there, next to other people.
+$('vehicle').addEventListener('click', (event) => {
+  const seat = event.target.closest('[data-seat]');
+  if (seat && game.move(ME, Number(seat.dataset.seat))) refresh();
+});
 $('trigger').addEventListener('click', () => {
   if (game.trigger(ME)) refresh();
 });
@@ -275,6 +293,7 @@ function refresh() {
 }
 
 $('sky').textContent = drawSky();
+if (!forceSky(new URLSearchParams(location.search).get('sky'))) followTheWeather();
 $('stop-scene').textContent = drawStopScene();
 refreshNotifyButtons();
 loadGame();

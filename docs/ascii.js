@@ -1,7 +1,6 @@
 // Everything you see is drawn with characters. Each function returns text,
 // or HTML when some characters need to be bold.
 
-export const SHAPE_CHAR = { triangle: '^', circle: 'o', square: '#' };
 
 export const escape = (text) => text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 
@@ -114,9 +113,13 @@ export function drawBoard(time) {
 
 // --- the bus -------------------------------------------------------------
 
+import { POSES } from './data.js';
+
 // A, B: the near side of the aisle in the back and front windows. C, D: the far side.
-// W: the wheels. The bus faces right.
-const BUS = [
+// W: the wheels. The bus faces right. Each seat is 7 characters: a face like (o_o)
+// with room on both sides for arms.
+const SLOT = 7;
+const SMALL_BUS = [
   '  ____________________________________________________  ',
   ' |  ____________    _____   __________________   ____ \\ ',
   ' | |AAAAAAAAAA  |  |     | |BBBBBBBBBBBBBBBB  | |    \\ \\',
@@ -126,13 +129,19 @@ const BUS = [
   ' |___(W)___________|_____|______________(W)____________|',
   "      '                                   '             ",
 ];
+// Widens the windows of the drawing above so each seat fits a face:
+// 5 back seats and 8 front seats go from 2 characters to SLOT.
+const widen = (line, col, extra) => line.slice(0, col) + line[col].repeat(extra) + line.slice(col);
+const BUS = SMALL_BUS.map((line) => widen(widen(line, 35, 8 * (SLOT - 2)), 10, 5 * (SLOT - 2)));
 export const BUS_WIDTH = BUS[0].length;
-const WHEEL = ['-', '\\', '|', '/'];
-const ME_MARK = '\u0001';
+export const WHEEL = ['-', '\\', '|', '/'];
+
+// How long arms stay out after doing your action.
+export const ARMS_MS = 4000;
 
 // The back bench has 5 seats in a row, all in the near back window.
-// The front windows have 8 (4 rows of 2).
-// Row 0 is at the front, so it is drawn at the right end of the front windows.
+// The front windows have 8 (4 rows of 2). Row 0 is at the front, so it is
+// drawn at the right end of the front windows.
 function windowSlot(seat) {
   if (seat.y === 5) return { part: 'A', index: seat.x };
   const farSide = seat.x >= 3;
@@ -140,21 +149,35 @@ function windowSlot(seat) {
   return { part: farSide ? 'D' : 'B', index };
 }
 
-export function drawBus(seats, frame) {
-  const windows = { A: Array(5).fill(' '), C: Array(5).fill(' '), B: Array(8).fill(' '), D: Array(8).fill(' ') };
-  let myChar = '@';
-  for (const seat of seats) {
-    const { part, index } = windowSlot(seat);
-    const char = SHAPE_CHAR[seat.shape] ?? 'o';
-    windows[part][index] = seat.me ? ME_MARK : char;
-    if (seat.me) myChar = char;
-  }
+// (o_o), or the rider's pose for a few seconds after they acted.
+export function drawFace(rider, now = Date.now()) {
+  const face = rider.face ?? 'o_o';
+  const acting = rider.actedAt != null && now - rider.actedAt < ARMS_MS;
+  const pose = (acting && POSES[rider.actionId]) || ' (X) ';
+  return pose.replace('X', face).padEnd(SLOT).slice(0, SLOT);
+}
 
-  const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].map((c) => `${c} `).join(''));
-  const text = BUS.map((line) => ['A', 'B', 'C', 'D'].reduce(fill, line))
+// Who has their arms out right now. When this changes, the bus is redrawn.
+export const armsKey = (riders, now = Date.now()) =>
+  riders.filter((r) => r.actedAt != null && now - r.actedAt < ARMS_MS).map((r) => r.seat).join(',');
+
+const EMPTY_WINDOW = ' '.repeat(SLOT);
+
+// Riders are faces. Free seats are buttons: click one to sit there.
+export function drawBus(riders, allSeats, now = Date.now()) {
+  const windows = { A: Array(5).fill(EMPTY_WINDOW), C: Array(5).fill(EMPTY_WINDOW), B: Array(8).fill(EMPTY_WINDOW), D: Array(8).fill(EMPTY_WINDOW) };
+  const bySeat = new Map(riders.map((rider) => [rider.seat, rider]));
+  allSeats.forEach((seat, i) => {
+    const { part, index } = windowSlot(seat);
+    const rider = bySeat.get(i);
+    windows[part][index] = rider
+      ? `<span class="${rider.me ? 'rider me' : 'rider'}" title="${escape(rider.me ? `you (${rider.name})` : rider.name)}">${escape(drawFace(rider, now))}</span>`
+      : `<button type="button" class="seat" data-seat="${i}" title="sit here" aria-label="sit here">${'_'.padStart(4).padEnd(SLOT)}</button>`;
+  });
+  const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].join(''));
+  return BUS.map((line) => ['A', 'B', 'C', 'D'].reduce(fill, escape(line)))
     .join('\n')
-    .replaceAll('W', WHEEL[frame % WHEEL.length]);
-  return escape(text).replace(ME_MARK, `<b class="me" title="you">${escape(myChar)}</b>`);
+    .replaceAll('W', '<span class="wheel">-</span>');
 }
 
 // The road slides left while the bus drives right.
@@ -169,8 +192,10 @@ export function drawRoad(frame, cols = 240) {
 const STUB = '012345';
 
 // rows: [{ text, bold }]. The text column is `width` characters wide.
-export function drawTicket(rows, width) {
-  const lines = [{ text: '' }, { text: 'T E R M I N A L   S T O P' }, { rule: true }, ...rows, { text: '' }];
+// The title is spaced out, like letters printed on a real ticket.
+export function drawTicket(title, rows, width) {
+  const spaced = title.toUpperCase().split('').join(' ');
+  const lines = [{ text: '' }, { text: spaced }, { rule: true }, ...rows, { text: '' }];
   const stub = (i) => `   ${STUB[i % STUB.length]}  `;
   const out = [` ${'_'.repeat(width + 3)}${'_'.repeat(6)} `];
   lines.forEach((line, i) => {

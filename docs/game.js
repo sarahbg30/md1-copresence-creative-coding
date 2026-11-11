@@ -1,5 +1,5 @@
 // The rules of the bus. No network code here, so the rules can be tested alone.
-import { NAMES, ACTIONS, MIXES, GENERIC_MIX } from './data.js';
+import { NAMES, ACTIONS, MIXES, GENERIC_MIX, FACES } from './data.js';
 
 const ALL_NAMES = Object.values(NAMES).flat();
 const NAME_SET = new Set(ALL_NAMES);
@@ -86,6 +86,7 @@ export class BusGame {
       id,
       shape: SHAPES[this.joined % SHAPES.length],
       color: COLORS[this.joined % COLORS.length],
+      face: this.pickFrom(FACES),
       phase: 'queue',
       name: this.pickName(),
       actionId: this.pickAction(),
@@ -118,12 +119,25 @@ export class BusGame {
     const neighbour = this.closestTo(person);
     const action = ACTION_BY_ID.get(person.actionId);
     const text = action.text.replace(/\byou\b/, neighbour ? neighbour.name : 'nobody');
+    person.actedAt = this.now();
     this.addLine(`${person.name} ${text}`, [person], 'action');
 
     if (neighbour && this.now() - this.lastMixAt >= this.mixCooldownMs) {
       this.lastMixAt = this.now();
       this.addLine(this.mixLine(person, neighbour), [person, neighbour], 'mix');
     }
+    return true;
+  }
+
+  // Change seat, to be next to someone else. Only free seats.
+  move(id, seat) {
+    const person = this.people.get(id);
+    if (!person || person.phase !== 'bus') return false;
+    if (!Number.isInteger(seat) || seat < 0 || seat >= SEATS.length) return false;
+    if (this.riders.some((p) => p.seat === seat)) return false;
+    person.seat = seat;
+    const neighbour = this.closestTo(person);
+    this.addLine(neighbour ? `${person.name} moves next to ${neighbour.name}` : `${person.name} moves to an empty seat`, [person]);
     return true;
   }
 
@@ -294,6 +308,7 @@ export class BusGame {
       ids: people.map((p) => p.id),
       shape: people[0]?.shape ?? null,
       color: people[0]?.color ?? null,
+      face: people[0]?.face ?? null,
     });
     if (this.log.length > LOG_LIMIT) this.log.shift();
   }
@@ -354,8 +369,8 @@ export class BusGame {
     const lines = this.log
       .filter((line) => line.id >= person.firstLineId)
       .slice(-LOG_SENT)
-      .map(({ id: lineId, text, kind, ids, shape, color }) => ({
-        id: lineId, text, kind, shape, color, mine: ids.includes(id),
+      .map(({ id: lineId, text, kind, ids, shape, color, face }) => ({
+        id: lineId, text, kind, shape, color, face, mine: ids.includes(id),
       }));
 
     return {
@@ -371,6 +386,9 @@ export class BusGame {
         name: p.name,
         shape: p.shape,
         color: p.color,
+        face: p.face,
+        actionId: p.actionId,
+        actedAt: p.actedAt ?? null,
         me: p === person,
       })),
       log: lines,
