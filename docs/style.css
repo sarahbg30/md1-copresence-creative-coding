@@ -140,7 +140,10 @@ button.notify { font-weight: 400; font-size: 15px; }
   list-style: none;
   scrollbar-width: none;
 }
-.log li { display: flex; gap: 1ch; padding: 1px 0; }
+.log { display: flex; flex-direction: column; }
+.log::before { content: ''; flex: 1; } /* pushes the story down, just above the bus */
+.log li { display: flex; gap: 1ch; padding: 1px 0; transition: opacity 0.6s; }
+.log li.fading { opacity: 0; }
 .log .glyph { flex: none; }
 .log li.mine { font-weight: 700; }
 .log li.stop { justify-content: center; margin: 8px 0; }

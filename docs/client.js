@@ -129,6 +129,19 @@ function renderOff() {
   $('memories-ticket').innerHTML = drawMemoriesTicket();
 }
 
+// The story is short-lived: at most 10 lines on screen, each one fades
+// away 8 seconds after it appears.
+const SHOWN_MAX = 10;
+const SHOWN_MS = 8000;
+const FADE_MS = 600;
+
+function fadeAway(item) {
+  setTimeout(() => {
+    item.classList.add('fading');
+    setTimeout(() => item.remove(), FADE_MS);
+  }, SHOWN_MS);
+}
+
 function appendLog(lines) {
   const log = $('log');
   const wasAtBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
@@ -150,9 +163,10 @@ function appendLog(lines) {
     }
     item.append(text);
     log.append(item);
+    fadeAway(item);
     if (line.kind === 'stop') braked = true;
   }
-  while (log.children.length > 200) log.firstChild.remove();
+  while (log.children.length > SHOWN_MAX) log.firstChild.remove();
   if (wasAtBottom) log.scrollTop = log.scrollHeight;
   if (braked) brake();
 }
