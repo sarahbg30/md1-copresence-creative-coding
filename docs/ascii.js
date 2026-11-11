@@ -240,7 +240,8 @@ export function drawDoubleDecker(riders, allSeats, now = Date.now()) {
 export function drawRoad(frame, cols = 240) {
   const shift = frame % 8;
   const dashes = '----    '.repeat(cols / 8 + 1).slice(shift, shift + cols);
-  return [' '.repeat(cols), dashes, '_'.repeat(cols)].join('\n');
+  // The first line is the ground: style.css lays it on the bus's last line, under the wheels.
+  return ['_'.repeat(cols), dashes, '_'.repeat(cols)].join('\n');
 }
 
 // --- tickets -------------------------------------------------------------
