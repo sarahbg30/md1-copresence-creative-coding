@@ -262,6 +262,34 @@ $('vehicle').addEventListener('click', (event) => {
   const seat = event.target.closest('[data-seat]');
   if (seat && game.move(ME, Number(seat.dataset.seat))) refresh();
 });
+// Or walk with the arrow keys: you go to the closest free seat that way,
+// stepping past the people already sitting there.
+const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+const middle = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
+document.addEventListener('keydown', (event) => {
+  const arrow = ARROWS[event.key];
+  const me = document.querySelector('#vehicle .me');
+  if (!arrow || !me || event.altKey || event.metaKey || event.ctrlKey) return;
+  event.preventDefault();
+  const from = middle(me);
+  let best = null;
+  for (const seat of document.querySelectorAll('#vehicle [data-seat]')) {
+    const to = middle(seat);
+    const ahead = (to.x - from.x) * arrow[0] + (to.y - from.y) * arrow[1]; // how far that way
+    const aside = Math.abs((to.x - from.x) * arrow[1] + (to.y - from.y) * arrow[0]); // how far off the line
+    if (ahead < 4) continue;
+    if (arrow[1] && aside > me.offsetWidth * 1.5) continue; // up and down stay in your part of the bus
+    const score = ahead + aside * 3;
+    if (!best || score < best.score) best = { seat, score };
+  }
+  if (best && game.move(ME, Number(best.seat.dataset.seat))) {
+    refresh();
+    document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }
+});
 $('trigger').addEventListener('click', () => {
   if (game.trigger(ME)) refresh();
 });
