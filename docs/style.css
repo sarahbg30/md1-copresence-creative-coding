@@ -52,8 +52,6 @@ button:hover, button:active { background: var(--ink); }
   line-height: 1.1;
   pointer-events: none;
 }
-body.riding:not(.stopped) .sky { animation: drift 150s linear infinite; }
-@keyframes drift { to { transform: translateX(-50%); } }
 
 /* --- the stop, and after the ride ---------------------------------------- */
 .stop-scene {
@@ -171,7 +169,7 @@ body.braking .vehicle { animation: brake 0.6s ease-out; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notice, body.braking .vehicle, .ticket-memories, body.riding:not(.stopped) .sky { animation: none; }
+  .notice, body.braking .vehicle, .ticket-memories { animation: none; }
   #stop-ticket { animation: none; transform: translate(-50%, -50%); }
 }
 

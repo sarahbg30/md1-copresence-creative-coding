@@ -185,6 +185,26 @@ function drawScene() {
   $('road').textContent = drawRoad(frame);
 }
 
+// The clouds always drift: slowly while you stand still, faster while the bus drives.
+// The speed eases from one to the other, so the sky never jumps.
+const CLOUD_SPEED = { standing: 6, driving: 24 }; // pixels per second
+let cloudX = 0;
+let cloudSpeed = CLOUD_SPEED.standing;
+let lastSkyTime = null;
+
+function driftSky(time) {
+  const driving = view?.phase === 'bus' && !document.body.classList.contains('stopped');
+  const target = driving ? CLOUD_SPEED.driving : CLOUD_SPEED.standing;
+  const seconds = lastSkyTime === null ? 0 : Math.min(1, (time - lastSkyTime) / 1000);
+  lastSkyTime = time;
+  cloudSpeed += (target - cloudSpeed) * Math.min(1, seconds * 1.5);
+  const loop = $('sky').scrollWidth / 2; // the sky is drawn twice, side by side
+  cloudX = loop ? (cloudX + cloudSpeed * seconds) % loop : 0;
+  $('sky').style.transform = `translateX(${-cloudX}px)`;
+  requestAnimationFrame(driftSky);
+}
+if (!reduceMotion) requestAnimationFrame(driftSky);
+
 setInterval(() => {
   if (reduceMotion || view?.phase !== 'bus' || document.body.classList.contains('stopped')) return;
   frame++;
