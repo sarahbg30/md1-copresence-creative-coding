@@ -176,6 +176,16 @@ function drawSeat(rider, i, now) {
 }
 const WHEEL_SPAN = '<span class="wheel">-</span>';
 
+// Fills a template in one pass, so letters in riders' names (now in capitals)
+// are never mistaken for window or wheel placeholders.
+function fillTemplate(template, windows) {
+  const parts = Object.keys(windows).join('');
+  const slots = new RegExp(`([${parts}])\\1*|W`, 'g');
+  return template
+    .map((line) => escape(line).replace(slots, (run, part) => (part ? windows[part].join('') : WHEEL_SPAN)))
+    .join('\n');
+}
+
 // The bus from the side, driving right. Wide: for computers.
 export function drawBus(riders, allSeats, now = Date.now()) {
   const windows = { A: Array(5).fill(EMPTY_WINDOW), C: Array(5).fill(EMPTY_WINDOW), B: Array(8).fill(EMPTY_WINDOW), D: Array(8).fill(EMPTY_WINDOW) };
@@ -184,10 +194,7 @@ export function drawBus(riders, allSeats, now = Date.now()) {
     const { part, index } = windowSlot(seat);
     windows[part][index] = drawSeat(bySeat.get(i), i, now);
   });
-  const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].join(''));
-  return BUS.map((line) => ['A', 'B', 'C', 'D'].reduce(fill, escape(line)))
-    .join('\n')
-    .replaceAll('W', WHEEL_SPAN);
+  return fillTemplate(BUS, windows);
 }
 
 // A double decker, driving right: narrow enough for a phone. Each window
@@ -226,10 +233,7 @@ export function drawDoubleDecker(riders, allSeats, now = Date.now()) {
     const { part, index } = deckSlot(seat);
     windows[part][index] = drawSeat(bySeat.get(i), i, now);
   });
-  const fill = (line, part) => line.replace(new RegExp(`${part}+`), windows[part].join(''));
-  return DOUBLE_DECKER.map((line) => ['P', 'Q', 'R', 'S'].reduce(fill, escape(line)))
-    .join('\n')
-    .replaceAll('W', WHEEL_SPAN);
+  return fillTemplate(DOUBLE_DECKER, windows);
 }
 
 // The road slides left while the bus drives right.
