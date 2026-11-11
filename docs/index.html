@@ -25,14 +25,16 @@
 <!-- THE BUS -->
 <main id="bus" class="bus" hidden>
   <p class="notice" id="your-stop" role="status" hidden>!! your stop is next. you get off when the bus stops !!</p>
-  <ol class="log" id="log" aria-live="polite"></ol>
+  <div class="top">
+    <p class="clock"><span>next stop in <span id="bus-time"></span></span></p>
+    <ol class="log" id="log" aria-live="polite"></ol>
+  </div>
   <section class="scene" aria-label="the bus on the road">
     <pre class="vehicle" id="vehicle"></pre>
     <pre class="road" id="road"></pre>
   </section>
   <div class="controls">
     <button type="button" id="trigger"></button>
-    <p class="clock">next stop in <span id="bus-time"></span></p>
     <button type="button" class="notify" hidden>[ tell me when my stop is next ]</button>
   </div>
 </main>
