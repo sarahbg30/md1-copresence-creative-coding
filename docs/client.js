@@ -3,7 +3,7 @@
 import { BusGame, SEATS } from './game.js';
 import { followTheWeather, forceSky } from './weather.js';
 import { ACTIONS as actions } from './data.js';
-import { wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawDoubleDecker, drawRoad, drawTicket } from './ascii.js';
+import { wholeFace, wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawDoubleDecker, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -144,7 +144,7 @@ function appendLog(lines) {
     } else {
       const glyph = document.createElement('span');
       glyph.className = 'glyph';
-      glyph.textContent = line.kind === 'mix' ? '  *  ' : line.face ? `(${line.face})` : '     ';
+      glyph.textContent = line.kind === 'mix' ? '  *  ' : line.face ? wholeFace(line.face) : '     ';
       item.append(glyph);
       text.textContent = line.text;
     }

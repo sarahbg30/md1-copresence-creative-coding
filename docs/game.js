@@ -1,5 +1,5 @@
 // The rules of the bus. No network code here, so the rules can be tested alone.
-import { NAMES, ACTIONS, MIXES, GENERIC_MIX, FACES } from './data.js';
+import { NAMES, ACTIONS, MIXES, GENERIC_MIX, HEADS, EYES, MOUTHS } from './data.js';
 
 const ALL_NAMES = Object.values(NAMES).flat();
 const NAME_SET = new Set(ALL_NAMES);
@@ -86,7 +86,7 @@ export class BusGame {
       id,
       shape: SHAPES[this.joined % SHAPES.length],
       color: COLORS[this.joined % COLORS.length],
-      face: this.pickFrom(FACES),
+      face: this.pickFace(),
       phase: 'queue',
       name: this.pickName(),
       actionId: this.pickAction(),
@@ -248,6 +248,13 @@ export class BusGame {
   }
 
   // --- the ticket --------------------------------------------------------
+
+  // A head, two eyes and a mouth: [^w^], {o_O}, |-.-|...
+  pickFace() {
+    const [left, right] = this.pickFrom(HEADS);
+    const [eye1, eye2] = this.pickFrom(EYES);
+    return `${left}${eye1}${this.pickFrom(MOUTHS)}${eye2}${right}`;
+  }
 
   pickFrom(list) {
     return list[Math.floor(this.random() * list.length)];

@@ -10,19 +10,25 @@ export const NAMES = {
   adjectives: ['shy', 'tacky', 'mysterious', 'happy', 'crazy', 'jazzy', 'tomodachi'],
 };
 
-// Riders are drawn as faces in the bus windows: (o_o). These are the insides, 3 characters each.
-export const FACES = ['o_o', '^_^', '-_-', 'O_O', '>_<', '._.', '=_=', 'x_x', '*_*', 'u_u', 'T_T', '@_@', '0_0', '~_~', '>_>', '<_<', 'n_n', 'v_v', 'q_p', 'e_e'];
+// Riders are drawn as faces in the bus windows, 5 characters each: a head,
+// two eyes and a mouth, mixed at random, like [^w^] or {o_O} or |-.-|.
+export const HEADS = ['()', '()', '()', '[]', '{}', '||', '<>', ')('];
+export const EYES = [
+  'oo', '^^', '--', 'OO', '><', '..', '==', 'xx', '**', 'uu', 'TT', '@@', '00', '~~', '>>', '<<',
+  'nn', 'vv', 'qp', 'ee', 'oO', 'Oo', "''", ';;', '$$', '++', '-o', 'o-', '``', 'ii', '99', '66',
+];
+export const MOUTHS = ['_', '_', '.', 'o', 'w', '-', 'v', '~', '3', 'x', 'u', '^', 'O', '=', 'm', 'A', 'D', 'c'];
 
 // For a few seconds after doing their action, riders show arms or a prop.
-// X is the face. Each pose is 5 characters before X is replaced.
+// X is the face. Each pose is 7 characters once X is replaced.
 export const POSES = {
-  sun: '\\(X)/', // arms up to the sun
-  rain: ' (X)~', // a finger on the rain
-  read: '[(X)]', // behind a book
-  think: ' (X)?',
-  bar: '\\(X)\\', // flailing
-  wave: ' (X)/',
-  photo: ' (X)#', // the camera
+  sun: '\\X/', // arms up to the sun
+  rain: ' X~', // a finger on the rain
+  read: '[X]', // behind a book
+  think: ' X?',
+  bar: '\\X\\', // flailing
+  wave: ' X/',
+  photo: ' X#', // the camera
 };
 
 // "you" in an action is replaced by the closest person, or by "nobody".

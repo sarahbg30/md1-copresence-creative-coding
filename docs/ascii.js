@@ -151,11 +151,14 @@ function windowSlot(seat) {
   return { part: farSide ? 'D' : 'B', index };
 }
 
+// Rides saved before faces had heads only kept the inside, like o_o.
+export const wholeFace = (face) => (!face ? '(o_o)' : face.length === 3 ? `(${face})` : face);
+
 // (o_o), or the rider's pose for a few seconds after they acted.
 export function drawFace(rider, now = Date.now()) {
-  const face = rider.face ?? 'o_o';
+  const face = wholeFace(rider.face);
   const acting = rider.actedAt != null && now - rider.actedAt < ARMS_MS;
-  const pose = (acting && POSES[rider.actionId]) || ' (X) ';
+  const pose = (acting && POSES[rider.actionId]) || ' X ';
   return pose.replace('X', face).padEnd(SLOT).slice(0, SLOT);
 }
 
