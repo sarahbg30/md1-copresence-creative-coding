@@ -57,6 +57,9 @@ button:hover, button:active { background: var(--ink); }
   font-size: 12px;
 }
 
+/* On the bus the corner belongs to "your stop is next". */
+body.riding .weather { display: none; }
+
 /* --- the sky ------------------------------------------------------------ */
 .sky {
   position: fixed;
