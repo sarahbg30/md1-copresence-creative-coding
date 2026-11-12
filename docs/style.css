@@ -1,19 +1,10 @@
-/* Everything is text: one monospace font, straight on a pastel sky
-   whose colours come from the real weather (weather.js). */
-@property --sky-blue { syntax: '<color>'; inherits: true; initial-value: #9fcaf2; }
-@property --sky-top { syntax: '<color>'; inherits: true; initial-value: #c3e0fa; }
-@property --sky-bottom { syntax: '<color>'; inherits: true; initial-value: #f8f2fb; }
-
 :root {
   color-scheme: light;
-  --paper: var(--sky-bottom); /* the colour of text turned inside out */
-  --blur: blur(5px); /* hides the clouds behind text, keeps the sky's colour */
-  --ink: #111;
-  --cloud: rgba(40, 50, 90, 0.32);
-  --mono: "Courier New", Courier, monospace;
-  /* Always a band of blue at the very top, then the weather's colours. */
-  background: linear-gradient(var(--sky-blue), var(--sky-top) 40%, var(--sky-bottom)) fixed;
-  transition: --sky-blue 4s, --sky-top 4s, --sky-bottom 4s;
+  --ink: #fff;
+  --hot: #f2f065;
+  --pink: #f3a9d8;
+  --outline: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+  --type: Times, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
@@ -24,72 +15,100 @@ html, body { min-height: 100%; }
 
 body {
   margin: 0;
-  overflow-x: hidden;
+  background: #7fa8cf;
   color: var(--ink);
-  font: 16px/1.3 var(--mono);
+  font: 18px/1.3 var(--type);
+  text-shadow: var(--outline);
 }
 
-pre { margin: 0; font: inherit; line-height: 1.05; white-space: pre; }
-
-/* Actions are words in brackets. Hovering turns them inside out. */
+/* Actions are big words, not grey boxes. */
 button {
-  padding: 0 2px;
+  padding: 0;
   border: 0;
   background: none;
-  color: inherit;
-  font: 700 18px/1.2 var(--mono);
+  color: var(--ink);
+  font: 700 34px/1.1 var(--type);
   text-align: left;
+  text-decoration: underline;
+  text-shadow: var(--outline);
   cursor: pointer;
 }
-button:hover, button:active { background: var(--ink); color: var(--paper); }
-button:focus-visible { outline: 2px dashed var(--ink); outline-offset: 3px; }
-button.notify { font-weight: 400; font-size: 15px; }
+button:hover, button:active { color: var(--hot); }
+button:focus-visible { outline: 3px dotted var(--hot); outline-offset: 3px; }
 
-/* Behind text, the clouds are blurred away so they never get in the way. */
-.log span, .clock > span, .notice, button, #stop-status { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); }
+.title { margin: 0; font: 700 44px/1.05 var(--type); }
 
-/* --- the sky ------------------------------------------------------------ */
-.sky {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: -2;
-  color: var(--cloud);
-  font-size: 14px;
-  line-height: 1.1;
-  pointer-events: none;
-}
+button.notify { font: 18px/1.3 var(--type); }
 
-/* --- the stop, and after the ride ---------------------------------------- */
-.stop-scene {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
-  z-index: -1;
-  font-size: clamp(9px, 1.6vw, 15px);
-  transform: translateX(-50%);
-}
+/* --- the stop, and after the ride --- */
 .page {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto;
   padding: 24px 16px;
   text-align: center;
 }
-#stop-status { margin: 0; font-weight: 700; }
-.board { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: min(20px, calc((100vw - 32px) / (36 * 0.6))); font-weight: 700; }
+/* The wait, on a departure board: amber LED dots on black. */
+.led-board {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 1.1em;
+  width: min(100%, 620px);
+  padding: 0.35em 0.7em;
+  border: 4px solid #1b1a18;
+  background-color: #090806;
+  background-image: radial-gradient(#231a0c 28%, transparent 30%);
+  background-size: 3px 3px;
+  color: #ffb02e;
+  font: 700 clamp(22px, 6vw, 38px)/1.15 Doto, "Courier New", monospace;
+  text-align: left;
+  text-shadow: 0 0 6px rgba(255, 150, 20, 0.75);
+  font-variant-numeric: tabular-nums;
+}
 
-.ticket { backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); text-align: left; }
-.ticket b { font-weight: 700; }
+/* Frozen sky and road, with the shelter and the sign standing on the pavement.
+   The translateY values remove the empty space at the bottom of their GIFs. */
+.stop-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: url("images/sky-still.png") center / cover;
+  image-rendering: pixelated;
+}
+.stop-road {
+  position: absolute;
+  inset: auto 0 0;
+  height: 34vh;
+  background: url("images/road-still.png") left bottom / auto 100% repeat-x;
+}
+.shelter, .stop-sign { position: absolute; bottom: 11vh; }
+.shelter { right: 6vw; width: min(52vh, 62vw); transform: translateY(29%); }
+.stop-sign { left: 4vw; width: min(36vh, 38vw); transform: translateY(2.7%); }
 
-/* For the 10 seconds before you board, the ticket comes out of your pocket. */
+/* --- the ticket: your GIF's ticket, with the name and action in its lower panel --- */
+.ticket {
+  position: relative;
+  flex: none;
+  width: 220px;
+  aspect-ratio: 320 / 191;
+  container-type: inline-size;
+  background: url("images/ticket.png") center / 100% 100% no-repeat;
+  color: #4b4663;
+  text-align: left;
+  text-shadow: none;
+  image-rendering: pixelated;
+}
+/* At the stop the ticket takes 70% of the screen, for the 10 seconds before you board. */
 #stop-ticket {
   position: fixed;
   z-index: 1;
   left: 50%;
   top: 50%;
-  font-size: min(24px, calc(70vw / (38 * 0.6)), calc(70vh / 13));
+  width: min(70vw, 70vh * 320 / 191);
   animation: pocket 10s linear both;
 }
 @keyframes pocket {
@@ -100,40 +119,61 @@ button.notify { font-weight: 400; font-size: 15px; }
   84% { transform: translate(-50%, -50%) rotate(1deg); animation-timing-function: ease-in; }
   100% { transform: translate(-50%, 70vh) rotate(-7deg); }
 }
+.ticket-name, .ticket-action { position: absolute; left: 13%; width: 60%; }
+.ticket-name { top: 51%; font: 700 11cqw/1 var(--type); }
+.ticket-action { top: 68%; font-size: 5cqw; font-weight: 700; line-height: 1.05; }
 
-/* After the ride, you look at your ticket one last time. It stays. */
+/* After the ride: back at the stop, you look at your ticket one last time.
+   It comes out of your pocket and stays, with your memories written on it. */
 .ticket-memories {
   position: fixed;
   z-index: 1;
   left: 50%;
-  top: 42%;
-  font-size: min(18px, calc((100vw - 24px) / (44 * 0.6)));
+  top: 50%;
+  width: min(94vw, 760px, 76vh * 320 / 191);
+  background-image: url("images/ticket-back.png");
   transform: translate(-50%, -50%) rotate(-2deg);
   animation: look-at-ticket 1.4s ease-out both;
 }
-@keyframes look-at-ticket { from { transform: translate(-50%, 70vh) rotate(9deg); } }
+@keyframes look-at-ticket {
+  from { transform: translate(-50%, 70vh) rotate(9deg); }
+}
+.ticket-text {
+  position: absolute;
+  inset: 22.5% 25.5% 13.5% 12%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  font-size: 3.6cqw;
+  line-height: 1.12;
+}
+#off-summary { margin: 0 0 1cqw; font-size: 5cqw; font-weight: 700; line-height: 1; }
+.memories { margin: 0; padding: 0; list-style: none; }
+.memories li { padding-bottom: 0.7cqw; }
+.memories li.mine { font-weight: 700; }
 
-/* --- the bus ---------------------------------------------------------------- */
+/* --- the bus: the moving sky fills the page, the log floats in it --- */
 .bus {
   position: fixed;
   inset: 0;
   display: flex;
   flex-direction: column;
+  background: url("images/sky.gif") center / cover;
+  image-rendering: pixelated;
 }
 .notice {
-  margin: 0 auto;
+  margin: 0;
   padding: 10px 16px 0;
-  font-weight: 700;
+  color: var(--hot);
+  font: 700 38px/1.05 var(--type);
   text-align: center;
   animation: blink 1s steps(1) infinite;
 }
 @keyframes blink { 50% { visibility: hidden; } }
 
-/* The clock and the story above, then the bus, then what you can do. */
+/* The clock and the story on top, then the bus, then what you can do.
+   The bus never moves: the text gets three quarters of the free space and
+   your action the last quarter, whatever text is in them. */
 .top { flex: 3 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-/* The bus never moves: the text gets the top three quarters of the free space,
-   your action the last quarter, whatever text is in them. So the bus sits
-   around three quarters of the way down the page. */
 .log {
   flex: 0 1 auto;
   width: 100%;
@@ -145,12 +185,13 @@ button.notify { font-weight: 400; font-size: 15px; }
   list-style: none;
   scrollbar-width: none;
 }
-.log { display: flex; flex-direction: column; }
-.log li { display: flex; gap: 1ch; padding: 1px 0; transition: opacity 0.6s; }
+.log li { display: flex; gap: 8px; padding: 1px 0; align-items: baseline; transition: opacity 0.6s; }
 .log li.fading { opacity: 0; }
-.log .glyph { flex: none; }
 .log li.mine { font-weight: 700; }
-.log li.stop { justify-content: center; margin: 8px 0; }
+.log li.mix { color: var(--hot); }
+.log li.stop { justify-content: center; margin: 8px 0; font: 700 30px/1 var(--type); }
+
+.face { flex: none; font-family: "Courier New", Courier, monospace; font-weight: 700; white-space: pre; }
 
 .controls {
   flex: 1 1 0;
@@ -161,68 +202,99 @@ button.notify { font-weight: 400; font-size: 15px; }
   align-content: flex-start;
   align-items: center;
   justify-content: center;
-  gap: 8px 24px;
-  padding: 16px 16px 8px;
+  gap: 8px 20px;
+  padding: 12px 16px 8px;
 }
-.clock { margin: 0 auto; padding: 16px 16px 0; width: 100%; max-width: 760px; }
+.clock { margin: 0 auto; padding: 16px 16px 0; width: 100%; max-width: 760px; font-variant-numeric: tabular-nums; }
 
+/* Three layers: the clouds behind, the road, the bus. */
 .scene {
+  position: relative;
   flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  /* Room above the roof, so the bus never gets cut off when it bumps up. */
-  padding-top: calc(var(--bus-size) * 0.5);
-  /* The bus is 121 characters wide. On a phone it stays readable and you can slide it. */
-  --bus-size: clamp(9px, calc((100vw - 16px) / (121 * 0.6)), 16px);
+  height: clamp(170px, 32vh, 340px);
+  overflow: hidden;
+  container-type: size;
 }
-.vehicle { position: relative; z-index: 1; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); font-size: var(--bus-size); }
-.road { align-self: stretch; overflow: hidden; font-size: var(--bus-size); }
-/* The road goes up one line, so the wheels touch the ground. */
-.road { position: relative; z-index: 2; margin-top: -1.05em; pointer-events: none; }
-.scene { align-items: safe center; }
-/* On a phone the bus is a double decker, 57 characters wide. */
-@media (max-width: 700px) {
-  .scene { --bus-size: min(16px, calc((100vw - 16px) / (57 * 0.6))); }
+.road {
+  position: absolute;
+  inset: auto 0 0;
+  height: 62%;
+  background: url("images/road.gif") left bottom / auto 100% repeat-x;
 }
-/* You: in bold, the same colour as everyone else. */
-.me { font-weight: 700; }
-.vehicle .seat { padding: 0; font: inherit; color: inherit; }
+/* The bus GIF is 600 x 600 with the bus at the bottom: this crops to the bus. */
+.vehicle {
+  position: absolute;
+  left: 50%;
+  bottom: 3%;
+  width: min(94cqw, 74cqh * 600 / 190);
+  aspect-ratio: 600 / 190;
+  overflow: hidden;
+  transform: translateX(-50%);
+  container-type: inline-size;
+}
+.vehicle img {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  max-width: none;
+}
+.vehicle .still { visibility: hidden; }
 
-/* The bus jolts at each stop. */
-/* While driving it rattles and bumps along the road. */
-body.riding:not(.stopped) .vehicle { animation: bumpy 0.7s linear infinite; }
-/* In em, so the shake grows with the bus: as strong on a laptop as on a phone. */
-@keyframes bumpy {
-  0%, 100% { transform: translate(0, 0); }
-  10% { transform: translate(0.06em, -0.15em); }
-  20% { transform: translate(-0.06em, 0.06em); }
-  30% { transform: translate(0, -0.27em); }
-  40% { transform: translate(0.12em, 0); }
-  50% { transform: translate(-0.06em, -0.15em); }
-  60% { transform: translate(0, 0.06em); }
-  70% { transform: translate(0.06em, -0.21em); }
-  80% { transform: translate(-0.12em, -0.06em); }
-  90% { transform: translate(0, -0.15em); }
+/* Riders sit in the bus windows, in two lines. The sizes come from the bus GIF:
+   5 seats behind the door, the door itself, then 8 seats in front of it. */
+.windows {
+  position: absolute;
+  left: 8.7%;
+  width: 71%;
+  top: 25%;
+  height: 27.4%;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 29.6fr)) minmax(0, 58fr) repeat(8, minmax(0, 27.5fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
 }
+.passenger, .windows .seat { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: visible; }
+/* Faces in the windows, sized with the bus. Yours is yellow. */
+.passenger .face { font-size: 1.5cqw; letter-spacing: -0.04em; text-shadow: none; }
+.passenger.me .face { color: var(--hot); }
+.windows .seat { text-shadow: none; font: 700 1.5cqw/1 "Courier New", Courier, monospace; text-decoration: none; opacity: 0.6; }
+.windows .seat:hover { opacity: 1; }
+
+/* At a stop, the road and the bus stop moving. The clouds carry on. */
+body.stopped .road { background-image: url("images/road-still.png"); }
+body.stopped .vehicle .moving { visibility: hidden; }
+body.stopped .vehicle .still { visibility: visible; }
+
+/* The bus brakes at each stop. */
 body.braking .vehicle { animation: brake 0.6s ease-out; }
 @keyframes brake {
-  25% { transform: translateX(14px); }
-  50% { transform: translateX(-7px); }
-  75% { transform: translateX(3px); }
+  0% { transform: translateX(-50%); }
+  25% { transform: translateX(calc(-50% + 6px)); }
+  50% { transform: translateX(calc(-50% - 3px)); }
+  75% { transform: translateX(calc(-50% + 1px)); }
+  100% { transform: translateX(-50%); }
+}
+
+/* The riders bump with the bus. bus.gif has 6 frames of 120 ms, and its body
+   rises 0, 0, 1, 2, 2, 2 pixels out of 600: the faces do the same. */
+body:not(.stopped) .windows { animation: ride-bump 720ms steps(1, end) infinite; }
+@keyframes ride-bump {
+  0%, 33.33% { transform: translateY(0); }
+  33.34%, 49.99% { transform: translateY(calc(-100cqw / 600)); }
+  50%, 100% { transform: translateY(calc(-200cqw / 600)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notice, body.riding .vehicle, body.braking .vehicle, .ticket-memories { animation: none; }
+  .notice, body.braking .vehicle, .ticket-memories, .windows { animation: none !important; }
   #stop-ticket { animation: none; transform: translate(-50%, -50%); }
 }
 
 @media (max-width: 640px) {
-  body { font-size: 14px; }
-  button { font-size: 16px; }
-  .controls { justify-content: flex-start; gap: 6px 12px; }
-  .clock { padding-top: 28px; }
+  .title { font-size: 36px; }
+  .notice { font-size: 28px; }
+  .log { font-size: 16px; }
+  button { font-size: 28px; }
+  .controls { flex-wrap: nowrap; justify-content: flex-start; gap: 12px; }
+  .clock { padding-top: 12px; }
 }

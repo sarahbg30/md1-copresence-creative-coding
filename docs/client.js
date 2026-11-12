@@ -1,9 +1,7 @@
 // Runs the whole bus inside this browser tab: there is no server.
 // Everyone else on the bus is a fake rider, so every tab has its own bus.
 import { BusGame, SEATS } from './game.js';
-import { followTheWeather, forceSky } from './weather.js';
 import { ACTIONS as actions } from './data.js';
-import { wholeFace, wrap, WHEEL, armsKey, drawSky, drawStopScene, drawBoard, drawBus, drawDoubleDecker, drawRoad, drawTicket } from './ascii.js';
 
 const $ = (id) => document.getElementById(id);
 const ME = 'me';
@@ -35,27 +33,20 @@ const formatBoardTime = (ms) => {
   return seconds > 60 ? `${Math.ceil(seconds / 60)}min` : `${seconds}s`;
 };
 
-const actionText = (actionId) => actions.find((a) => a.id === actionId)?.text ?? '';
-
-// The ticket you look at before boarding: your name and your action.
-function drawBoardingTicket() {
-  const rows = [{ text: '' }, { text: view.name, bold: true }, ...wrap(actionText(view.actionId), 28).map((text) => ({ text }))];
-  return drawTicket('your ticket', rows, 28);
+// Everyone has a face: [^w^], {o_O}, |-.-|...
+function makeFace(face) {
+  const el = document.createElement('span');
+  el.className = 'face';
+  el.textContent = face ?? '(o_o)';
+  return el;
 }
 
-// The ticket after the ride, with the memories written on it.
-function drawMemoriesTicket() {
-  const width = 34;
-  const stops = view.stops === 1 ? '1 stop' : `${view.stops} stops`;
-  const rows = [{ text: '' }, ...wrap(`${view.name}, ${stops} on the bus`, width).map((text) => ({ text, bold: true }))];
-  const memories = view.memories.length
-    ? view.memories
-    : [{ text: 'nothing happened. you looked out of the window.', mine: false }];
-  for (const memory of memories) {
-    rows.push({ text: '' });
-    wrap(memory.text, width - 2).forEach((text, i) => rows.push({ text: `${i ? '  ' : '- '}${text}`, bold: memory.mine }));
-  }
-  return drawTicket('terminal stop', rows, width);
+function fillTicket(ticket, name, actionId) {
+  const key = `${name}/${actionId}`;
+  if (ticket.dataset.key === key) return;
+  ticket.dataset.key = key;
+  ticket.querySelector('.ticket-name').textContent = name;
+  ticket.querySelector('.ticket-action').textContent = actions.find((a) => a.id === actionId)?.text ?? '';
 }
 
 // --- the notification ----------------------------------------------------
@@ -92,7 +83,6 @@ function render() {
   $('stop-scene').hidden = view.phase === 'bus';
   $('bus').hidden = view.phase !== 'bus';
   $('off').hidden = view.phase !== 'off';
-  document.body.classList.toggle('riding', view.phase === 'bus');
 
   if (view.phase === 'queue') renderStop();
   if (view.phase === 'bus') renderBus();
@@ -106,16 +96,12 @@ function render() {
 
 function renderStop() {
   $('stop-status').hidden = !view.busFull;
-  const ticket = $('stop-ticket');
-  const key = `${view.name}/${view.actionId}`;
-  if (ticket.dataset.key !== key) {
-    ticket.dataset.key = key;
-    ticket.innerHTML = drawBoardingTicket();
-  }
+  fillTicket($('stop-ticket'), view.name, view.actionId);
 }
 
 function renderBus() {
-  $('trigger').textContent = `[ ${actionText(view.actionId)} ]`;
+  const action = actions.find((a) => a.id === view.actionId);
+  $('trigger').textContent = action?.text ?? '';
 
   $('your-stop').hidden = !view.yourStopIsNext;
   if (view.yourStopIsNext) tellAboutStop();
@@ -126,11 +112,23 @@ function renderBus() {
 }
 
 function renderOff() {
-  $('memories-ticket').innerHTML = drawMemoriesTicket();
+  const stops = view.stops === 1 ? '1 stop' : `${view.stops} stops`;
+  $('off-summary').textContent = `${view.name}, ${stops} on the bus`;
+  const items = view.memories.map((memory) => {
+    const item = document.createElement('li');
+    item.className = [memory.kind, memory.mine ? 'mine' : ''].join(' ').trim();
+    item.textContent = memory.text;
+    return item;
+  });
+  if (!items.length) {
+    const quiet = document.createElement('li');
+    quiet.textContent = 'nothing happened. you looked out of the window.';
+    items.push(quiet);
+  }
+  $('memories').replaceChildren(...items);
 }
 
-// The story is short-lived: at most 10 lines on screen, each one fades
-// away 8 seconds after it appears.
+// The story shows at most 10 lines, and each one fades out after 8 seconds.
 const SHOWN_MAX = 10;
 const SHOWN_MS = 8000;
 const FADE_MS = 600;
@@ -144,30 +142,21 @@ function fadeAway(item) {
 
 function appendLog(lines) {
   const log = $('log');
-  const wasAtBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
   let braked = false;
   for (const line of lines) {
     if (line.id <= lastLineId) continue;
     lastLineId = line.id;
     const item = document.createElement('li');
     item.className = [line.kind, line.mine ? 'mine' : ''].join(' ').trim();
+    if (line.kind !== 'stop') item.append(makeFace(line.face));
     const text = document.createElement('span');
-    if (line.kind === 'stop') {
-      text.textContent = `- - - ${line.text} - - -`;
-    } else {
-      const glyph = document.createElement('span');
-      glyph.className = 'glyph';
-      glyph.textContent = line.kind === 'mix' ? '  *  ' : line.face ? wholeFace(line.face) : '     ';
-      item.append(glyph);
-      text.textContent = line.text;
-    }
+    text.textContent = line.text;
     item.append(text);
     log.append(item);
     fadeAway(item);
     if (line.kind === 'stop') braked = true;
   }
   while (log.children.length > SHOWN_MAX) log.firstChild.remove();
-  if (wasAtBottom) log.scrollTop = log.scrollHeight;
   if (braked) brake();
 }
 
@@ -183,67 +172,41 @@ function brake() {
   stopTimer = setTimeout(() => document.body.classList.remove('stopped', 'braking'), STOP_MS);
 }
 
-// The bus and the road are redrawn when someone gets on or off, and a few
-// times a second while driving, so the wheels turn and the road slides by.
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let frame = 0;
+// Where a seat row starts in the window grid. The bus faces right, so row 0 is
+// at the front and the back bench (y = 5) is at the far left. Column 6 is the door.
+const firstWindowColumn = (y) => (y === 5 ? 1 : y === 4 ? 4 : 7 + (3 - y) * 2);
 
-// On a phone the long bus does not fit: it becomes a double decker.
-const phone = matchMedia('(max-width: 700px)');
-phone.addEventListener('change', () => {
-  renderedSeats = '';
-  if (view?.phase === 'bus') renderSeats();
-});
-
+// Riders sit in the bus windows. One side of the aisle is the top line of the
+// window, the other side is the bottom line. Free seats are buttons: click one
+// to sit there.
 function renderSeats() {
-  const key = JSON.stringify(view.seats) + armsKey(view.seats) + phone.matches;
+  const key = JSON.stringify(view.seats.map((p) => [p.seat, p.face, p.me]));
   if (key === renderedSeats) return;
-  const firstDraw = !renderedSeats;
   renderedSeats = key;
-  drawScene();
-  // If the bus is still wider than the screen, start with you in the middle.
-  if (firstDraw) document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+
+  const bySeat = new Map(view.seats.map((person) => [person.seat, person]));
+  const cells = SEATS.map((seat, i) => {
+    const person = bySeat.get(i);
+    const cell = document.createElement(person ? 'div' : 'button');
+    if (person) {
+      cell.className = person.me ? 'passenger me' : 'passenger';
+      cell.title = person.name;
+      cell.append(makeFace(person.face));
+    } else {
+      cell.type = 'button';
+      cell.className = 'seat';
+      cell.dataset.seat = i;
+      cell.title = 'sit here';
+      cell.setAttribute('aria-label', 'sit here');
+      cell.textContent = '_';
+    }
+    const farSide = seat.x >= 3;
+    cell.style.gridColumn = firstWindowColumn(seat.y) + (farSide ? seat.x - 3 : seat.x);
+    cell.style.gridRow = farSide ? 2 : 1;
+    return cell;
+  });
+  $('seats').replaceChildren(...cells);
 }
-
-function drawScene() {
-  $('vehicle').innerHTML = (phone.matches ? drawDoubleDecker : drawBus)(view.seats, SEATS);
-  drawMotion();
-}
-
-// Only the wheels and the road change while driving, so the seats you can
-// click are never replaced under your finger.
-function drawMotion() {
-  for (const wheel of document.querySelectorAll('.wheel')) wheel.textContent = WHEEL[frame % WHEEL.length];
-  $('road').textContent = drawRoad(frame);
-}
-
-// The clouds always drift: slowly while you stand still, faster while the bus drives.
-// The speed eases from one to the other, so the sky never jumps.
-const CLOUD_SPEED = { standing: 6, driving: 24 }; // pixels per second
-let cloudX = 0;
-let cloudSpeed = CLOUD_SPEED.standing;
-let lastSkyTime = null;
-
-function driftSky(time) {
-  const driving = view?.phase === 'bus' && !document.body.classList.contains('stopped');
-  const target = driving ? CLOUD_SPEED.driving : CLOUD_SPEED.standing;
-  const seconds = lastSkyTime === null ? 0 : Math.min(1, (time - lastSkyTime) / 1000);
-  lastSkyTime = time;
-  cloudSpeed += (target - cloudSpeed) * Math.min(1, seconds * 1.5);
-  const loop = $('sky').scrollWidth / 2; // the sky is drawn twice, side by side
-  cloudX = loop ? (cloudX + cloudSpeed * seconds) % loop : 0;
-  $('sky').style.transform = `translateX(${-cloudX}px)`;
-  requestAnimationFrame(driftSky);
-}
-if (!reduceMotion) requestAnimationFrame(driftSky);
-
-setInterval(() => {
-  if (view?.phase !== 'bus') return;
-  renderSeats(); // arms go back down after a few seconds
-  if (reduceMotion || document.body.classList.contains('stopped')) return;
-  frame++;
-  drawMotion();
-}, 140);
 
 // In the last 10 seconds before you board, the ticket comes out of your pocket,
 // you look at it, and it goes back in. The animation in style.css lasts 10 seconds.
@@ -264,7 +227,7 @@ function renderClocks() {
   if (!view || !view.nextStopAt) return;
   const left = view.nextStopAt - Date.now();
   if (view.phase === 'queue') {
-    $('board').textContent = drawBoard(formatBoardTime(left));
+    $('stop-time').textContent = formatBoardTime(left);
     pullOutTicket(left);
   }
   if (view.phase === 'bus') $('bus-time').textContent = formatTime(left);
@@ -278,8 +241,13 @@ for (const button of document.querySelectorAll('.notify')) {
     refreshNotifyButtons();
   });
 }
+// Skip the wait at the stop: the bus comes right away.
+$('skip').addEventListener('click', () => {
+  if (game.skipWait()) refresh();
+  renderClocks();
+});
 // Click a free seat to sit there, next to other people.
-$('vehicle').addEventListener('click', (event) => {
+$('seats').addEventListener('click', (event) => {
   const seat = event.target.closest('[data-seat]');
   if (seat && game.move(ME, Number(seat.dataset.seat))) refresh();
 });
@@ -292,29 +260,21 @@ const middle = (el) => {
 };
 document.addEventListener('keydown', (event) => {
   const arrow = ARROWS[event.key];
-  const me = document.querySelector('#vehicle .me');
+  const me = document.querySelector('#seats .me');
   if (!arrow || !me || event.altKey || event.metaKey || event.ctrlKey) return;
   event.preventDefault();
   const from = middle(me);
   let best = null;
-  for (const seat of document.querySelectorAll('#vehicle [data-seat]')) {
+  for (const seat of document.querySelectorAll('#seats [data-seat]')) {
     const to = middle(seat);
     const ahead = (to.x - from.x) * arrow[0] + (to.y - from.y) * arrow[1]; // how far that way
     const aside = Math.abs((to.x - from.x) * arrow[1] + (to.y - from.y) * arrow[0]); // how far off the line
-    if (ahead < 4) continue;
+    if (ahead < 2) continue;
     if (arrow[1] && aside > me.offsetWidth * 1.5) continue; // up and down stay in your part of the bus
     const score = ahead + aside * 3;
     if (!best || score < best.score) best = { seat, score };
   }
-  if (best && game.move(ME, Number(best.seat.dataset.seat))) {
-    refresh();
-    document.querySelector('#vehicle .me')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-  }
-});
-// Skip the wait at the stop: the bus comes right away.
-$('skip').addEventListener('click', () => {
-  if (game.skipWait()) refresh();
-  renderClocks();
+  if (best && game.move(ME, Number(best.seat.dataset.seat))) refresh();
 });
 $('trigger').addEventListener('click', () => {
   if (game.trigger(ME)) refresh();
@@ -346,9 +306,6 @@ function refresh() {
   saveGame();
 }
 
-$('sky').textContent = drawSky();
-if (!forceSky(new URLSearchParams(location.search).get('sky'))) followTheWeather();
-$('stop-scene').textContent = drawStopScene();
 refreshNotifyButtons();
 loadGame();
 game.join(ME);
