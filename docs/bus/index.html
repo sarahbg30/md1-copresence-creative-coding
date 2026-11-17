@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>the bus</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap">
 <style>
   html, body { margin: 0; height: 100%; background: #7fa8cf; overflow: hidden; }
+  /* The road and sky are wider than the screen: clip them, so a tap on a
+     button can't scroll the page sideways. */
+  html, body { overflow: clip; }
+  /* No double-tap zoom or text selection while tapping on a phone. */
+  body { touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
   body { display: grid; place-items: center; }
 
   /* The window we look through: canvas x 266 to 1246 (980 wide), full height.
@@ -234,6 +239,47 @@
   .window-cloud-track > div { flex: 1; position: relative; }
   .view.stopped .window-cloud-track { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .sky, .window-cloud-track { animation: none; } }
+  /* --- Phones ---------------------------------------------------------------
+     Walking buttons, in the same hand-drawn style as the action button, at
+     either end of the bus. Only on touch screens; keys do it elsewhere. */
+  .walk {
+    display: none;
+    position: absolute;
+    top: 72.5%;
+    z-index: 1;
+    width: 5.5cqw;
+    aspect-ratio: 1;
+    padding: 0 0 0.5cqw;
+    border: 0.35cqw solid #676b6e;
+    border-radius: 2.2cqw 0.8cqw 2cqw 0.9cqw / 0.9cqw 2cqw 0.8cqw 2.2cqw;
+    background: #f6ecf0;
+    color: #4f6ff0;
+    font: 700 4cqw/1 Gaegu, Times, serif;
+    cursor: pointer;
+  }
+  #walk-front { left: 3cqw; rotate: -3deg; }
+  #walk-back { right: 3cqw; rotate: 2deg; }
+  .walk:active { scale: 0.92; }
+  @media (pointer: coarse) {
+    .walk { display: block; }
+    .action { font-size: 3cqw; }
+  }
+  /* Small screens: bigger writing on the windows (fewer lines fit). */
+  @media (max-height: 500px), (max-width: 700px) {
+    .texts p { font-size: 0.8cqw; }
+  }
+  /* Held upright, the bus is too small to read: ask to turn the phone. */
+  .turn { display: none; }
+  @media (orientation: portrait) and (pointer: coarse) {
+    .view { display: none; }
+    .turn {
+      display: block;
+      margin: 0 24px;
+      text-align: center;
+      color: #fff;
+      font: 700 28px/1.3 Gaegu, Times, serif;
+    }
+  }
   .riders { position: absolute; inset: 0; }
   .riders img { position: absolute; inset: 0; width: 100%; height: 100%; }
   /* Other riders walking along the aisle: one row per step, bobbing. */
@@ -320,7 +366,10 @@
     </g>
   </svg>
   <button type="button" class="action" id="action" disabled></button>
+  <button type="button" class="walk" id="walk-front" aria-label="walk towards the front">‹</button>
+  <button type="button" class="walk" id="walk-back" aria-label="walk towards the back">›</button>
 </div>
+<p class="turn">turn your phone sideways<br>to ride the bus</p>
 <script src="rules.js"></script>
 <script src="game.js"></script>
 </body>

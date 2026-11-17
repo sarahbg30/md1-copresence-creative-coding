@@ -178,17 +178,23 @@ button.addEventListener("click", () => {
   R.act(ride, clock()).forEach(write);
 });
 
-addEventListener("keydown", e => {
-  const dir = { ArrowLeft: -1, ArrowRight: +1 }[e.key];
-  if (!dir) return;
-  e.preventDefault();
+// Walk one row: arrow keys on a computer, the ‹ › buttons on a phone.
+function walk(dir) {
   if (me.where !== "bus") return;
   R.move(ride, dir, clock());
   standing.classList.remove("walking");
   void standing.offsetWidth;                   // restart the bob on every step
   standing.classList.add("walking");
   frame();
+}
+addEventListener("keydown", e => {
+  const dir = { ArrowLeft: -1, ArrowRight: +1 }[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  walk(dir);
 });
+$("walk-front").addEventListener("click", () => walk(-1));
+$("walk-back").addEventListener("click", () => walk(+1));
 
 // --- Clouds, scattered at random --------------------------------------------------
 // Two cloud layers: the sky above the roof, and the clouds outside at window
