@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>the bus</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; background: #7fa8cf; overflow: hidden; }
+  body { display: grid; place-items: center; }
+
+  /* The window we look through: canvas x 266 to 1246 (980 wide), full height.
+     Change these two numbers to move or widen the view. */
+  :root { --view-x: 266; --view-w: 980; }
+
+  .view {
+    position: relative;   /* no overflow clipping: the bus runs on to the screen edges */
+    width: min(100vw, 100vh * var(--view-w) / 650);
+    aspect-ratio: var(--view-w) / 650;
+  }
+  /* The button under the clear window. It sits in the view, not on the bus,
+     so it stays put while the bus slides. Sizes follow the view width (cqw). */
+  .view { container-type: inline-size; }
+  .action {
+    position: absolute;
+    left: 50%;
+    top: 74.5%;
+    translate: -50% 0;
+    z-index: 1;
+    padding: 0.4cqw 2.4cqw 0.6cqw;
+    /* Hand-drawn look, like the bus windows: grey wobbly outline, uneven corners. */
+    border: 0.35cqw solid #676b6e;
+    border-radius: 2.2cqw 0.8cqw 2cqw 0.9cqw / 0.9cqw 2cqw 0.8cqw 2.2cqw;
+    background: #f6ecf0;
+    color: #4f6ff0;
+    font: 700 2.4cqw/1 Gaegu, Times, serif;
+    rotate: -1deg;
+    cursor: pointer;
+    transition: rotate 0.15s, scale 0.15s;
+  }
+  /* The bus route, above the bus: four stops, unevenly spaced. */
+  .route {
+    position: absolute;
+    left: 50%;
+    top: 0.6cqw;
+    translate: -50% 0;
+    z-index: 1;
+    width: 48cqw;
+    height: auto;
+  }
+  .action:hover { rotate: 1deg; scale: 1.04; }
+  .action:active { scale: 0.97; }
+  .action:focus-visible { outline: 0.25cqw dashed #676b6e; outline-offset: 0.4cqw; }
+
+  /* Every GIF shares one 2544 x 590 canvas, so they stack exactly. */
+  .bus {
+    position: absolute;
+    top: calc(60 / 650 * 100%);   /* room above the bus for the route */
+    height: calc(590 / 650 * 100%);
+    width: calc(100% * 2544 / var(--view-w));
+    left: calc(-100% * var(--view-x) / var(--view-w));
+    transition: left 0.6s ease-in-out, --l 0.6s ease-in-out, --r 0.6s ease-in-out;
+  }
+  .bus img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* The bus bounces and rocks a little, like it's driving on a bumpy road. */
+  .bus {
+    transform-origin: 50% 90%;
+    animation: wiggle 1.7s ease-in-out infinite;
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    20%      { transform: translateY(-0.6%) rotate(-0.12deg); }
+    45%      { transform: translateY(0.2%) rotate(0.08deg); }
+    70%      { transform: translateY(-0.4%) rotate(0.14deg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .bus { animation: none; } }
+
+  .inside { position: absolute; inset: 0; }
+
+  /* --l and --r: left and right edge of the clear window our character is in
+     (set by the script). Registered so they can glide from window to window. */
+  @property --l { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+  @property --r { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+
+  /* Frosted front glass everywhere except the clear window, with soft edges.
+     The bus body on top hides all of it except at the windows. */
+  /* Text written on the frosted windows. It uses the same mask as the frost,
+     so it disappears in the clear window. Sizes follow the bus (cqw = 1% of
+     the bus width). */
+  .bus { container-type: inline-size; }
+  .texts { position: absolute; inset: 0; }
+  .texts p {
+    position: absolute;
+    margin: 0;
+    overflow: hidden;
+    color: #fff;
+    font: 0.55cqw/1.15 Gaegu, Times, "Times New Roman", serif;
+  }
+  .frost, #glass, .front-glass, .texts {
+    --hole: linear-gradient(to right,
+      #000 calc(var(--l) - 1.4%), transparent calc(var(--l) + 0.6%),
+      transparent calc(var(--r) - 2%), #000 var(--r));
+    -webkit-mask: var(--hole);
+    mask: var(--hole);
+  }
+  .frost {
+    position: absolute;
+    inset: 0;
+    /* Only from the top of the windows down to their bottom, so the clouds
+       above the roof and the road under the bus stay sharp. */
+    top: calc(85 / 590 * 100%);
+    bottom: calc(175 / 590 * 100%);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  /* Window.gif stops short of the small front window, so the glass is cut at
+     the pillar behind it (x 320) and a flat patch of the same blue covers the front. */
+  #glass { clip-path: inset(0 0 0 calc(320 / 2544 * 100%)); }
+  .front-glass {
+    position: absolute;
+    inset: 0;
+    background: #5580fb;
+    opacity: 0.5;
+    /* Traced from the front window opening in BusCoque.gif, so it never shows outside the bus. */
+    clip-path: polygon(7.39% 29.32%, 7.59% 29.32%, 7.74% 22.37%, 7.90% 20.34%, 8.06% 18.31%, 8.22% 16.61%, 8.37% 15.93%, 8.53% 14.92%, 8.69% 14.41%, 8.84% 13.90%, 9.00% 13.22%, 9.16% 12.71%, 9.32% 12.37%, 9.47% 12.20%, 9.63% 11.86%, 9.79% 11.86%, 9.94% 11.86%, 10.10% 12.20%, 10.26% 12.54%, 10.42% 13.22%, 10.57% 14.07%, 10.73% 15.93%, 10.89% 21.19%, 11.05% 29.15%, 11.20% 35.08%, 11.36% 40.00%, 11.52% 47.63%, 11.67% 49.66%, 11.87% 49.66%, 11.87% 53.56%, 11.67% 53.56%, 11.52% 54.92%, 11.36% 55.76%, 11.20% 56.10%, 11.05% 56.61%, 10.89% 56.78%, 10.73% 56.95%, 10.57% 56.78%, 10.42% 56.78%, 10.26% 56.44%, 10.10% 56.44%, 9.94% 56.27%, 9.79% 56.10%, 9.63% 55.76%, 9.47% 55.42%, 9.32% 55.08%, 9.16% 54.92%, 9.00% 54.41%, 8.84% 53.90%, 8.69% 52.88%, 8.53% 51.36%, 8.37% 49.66%, 8.22% 47.46%, 8.06% 45.76%, 7.90% 44.24%, 7.74% 41.86%, 7.59% 35.76%, 7.39% 35.76%);
+  }
+
+  #me.walking { animation: step 0.3s ease-in-out 2; }
+  @keyframes step { 50% { transform: translateY(-1.2%); } }
+
+  /* --- the game --------------------------------------------------------- */
+  /* The road, road-dreamcore.gif: drawn on the same 2544 x 590 canvas as
+     the bus, so it lines up with the wheels as drawn. Four copies side by
+     side scroll to the right, so the bus (front on the left) seems to drive.
+     Every second copy is flipped left-right so the slanted edges meet
+     without a step. One loop moves two copies, which looks the same.
+     Under each copy, a copy flipped upside down carries the road on down
+     the screen on tall screens. */
+  .road-track {
+    --tile: calc(2544 / 980 * 100%);        /* one copy, in view widths */
+    position: absolute;
+    top: calc(60 / 650 * 100%);
+    height: calc(590 / 650 * 100%);
+    left: calc(50% - 3 * var(--tile));
+    width: calc(4 * var(--tile));
+    display: flex;
+    pointer-events: none;
+    /* Slow, and choppy like stop-motion: 60 s per loop in 360 jumps,
+       so the road moves 6 times a second. */
+    animation: drive 60s steps(360) infinite;
+  }
+  @keyframes drive { to { translate: 50% 0; } }
+  .road-track div { flex: 1; position: relative; }
+  .road-track div:nth-child(even) { scale: -1 1; }
+  .road-track img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .road-track img + img { top: 100%; scale: 1 -1; }
+  /* At a stop, and at the end of the line, the road stops and the bus rests. */
+  .view.stopped .road-track, .view.stopped .bus { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .road-track { animation: none; } }
+  /* Further down still, the road's colour. */
+  .view::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: calc(100% + 100 / 650 * 100%);
+    left: 50%;
+    translate: -50% 0;
+    width: 400vw;
+    height: 100vh;
+    background: #3f546e;
+  }
+  /* The bus's shadow on the road. Same box as the bus (so it slides with it)
+     but it doesn't rock: it shrinks and fades a little when the bus bounces up,
+     in time with the wiggle. */
+  .bus-shadow {
+    position: absolute;
+    top: calc(60 / 650 * 100%);
+    height: calc(590 / 650 * 100%);
+    width: calc(100% * 2544 / var(--view-w));
+    left: calc(-100% * var(--view-x) / var(--view-w));
+    transition: left 0.6s ease-in-out;
+    pointer-events: none;
+    transform-origin: 53% 90%;
+    animation: shadow 1.7s ease-in-out infinite;
+  }
+  @keyframes shadow {
+    0%, 100% { scale: 1; opacity: 1; }
+    20%      { scale: 0.985 0.9; opacity: 0.85; }
+    45%      { scale: 1.005 1.03; opacity: 1; }
+    70%      { scale: 0.99 0.93; opacity: 0.9; }
+  }
+  .view.stopped .bus-shadow { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .bus-shadow { animation: none; } }
+  /* Clouds in the sky above the bus, sharp, behind the bus and the route.
+     They are drawn on the bus canvas at window height (y 82 to 214), so the
+     sky is that canvas at 70% size, lifted so the clouds float just above
+     the roof. Each copy holds eight clouds (the four drawings, twice),
+     scattered at random by game.js; the three copies are scattered the same
+     way so the loop has no jump. They drift right very slowly and loop. */
+  .sky {
+    --s: 0.7;
+    --tile: calc(2544 * var(--s) / 980 * 100%);     /* one copy, in view widths */
+    position: absolute;
+    top: calc((4 - 82 * var(--s)) / 650 * 100%);
+    height: calc(590 * var(--s) / 650 * 100%);
+    left: calc(50% - 2 * var(--tile));
+    width: calc(3 * var(--tile));
+    display: flex;
+    pointer-events: none;
+    /* Very slow and choppy: 240 s per copy in 480 jumps, two a second. */
+    animation: clouds 240s steps(480) infinite;
+  }
+  @keyframes clouds { to { translate: calc(100% / 3) 0; } }
+  .sky > div { flex: 1; position: relative; }
+  .sky img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* Drawn pink; made white here, keeping a little of their shading. */
+  .sky { filter: grayscale(1) brightness(1.7) contrast(0.85); }
+  .view.stopped .sky { animation-play-state: paused; }
+  /* More clouds outside at window height, seen through the windows: they
+     sit between the window glass and the inside of the bus, kept within the
+     bus outline (x 180 to 2500). Full size, since they are seen up close.
+     Same drift speed on screen as the sky, same two jumps a second. */
+  .window-clouds {
+    position: absolute; inset: 0; overflow: hidden;
+    clip-path: inset(0 calc(44 / 2544 * 100%) 0 calc(180 / 2544 * 100%));
+  }
+  .window-cloud-track {
+    position: absolute; top: 0; height: 100%; left: -200%; width: 300%;
+    display: flex;
+    filter: grayscale(1) brightness(1.7) contrast(0.85);
+    animation: clouds 343s steps(686) infinite;
+  }
+  .window-cloud-track > div { flex: 1; position: relative; }
+  .view.stopped .window-cloud-track { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .sky, .window-cloud-track { animation: none; } }
+  .riders { position: absolute; inset: 0; }
+  .riders img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* Other riders walking along the aisle: one row per step, bobbing. */
+  #standing img { transition: translate 0.7s linear; }
+  #standing img.walking { animation: step 0.35s ease-in-out infinite; }
+  #me { transition: translate 0.6s ease-in-out; }
+  .action:disabled { cursor: default; color: #8e9bb8; rotate: 0deg; scale: 1; }
+  /* The window lines stack from the bottom; old ones slide out of the top. */
+  .texts p { display: flex; flex-direction: column; justify-content: flex-end; gap: 0.15cqw; }
+  .texts span { animation: ink 1.2s ease-out; }
+  .texts .mine { font-weight: 700; }
+  @keyframes ink { from { opacity: 0; } }
+  .route .done { fill: #4f6ff0; }
+  .route .marker { fill: #4f6ff0; stroke: #676b6e; stroke-width: 10; transition: cx 1s linear; }
+</style>
+</head>
+<body>
+<div class="view">
+  <div class="sky" aria-hidden="true">
+    <div><img src="cloud1.gif" alt=""><img src="cloud2.gif" alt=""><img src="cloud3.gif" alt=""><img src="cloud4.gif" alt=""><img src="cloud1.gif" alt="" class="later"><img src="cloud2.gif" alt="" class="later"><img src="cloud3.gif" alt="" class="later"><img src="cloud4.gif" alt="" class="later"></div>
+    <div><img src="cloud1.gif" alt=""><img src="cloud2.gif" alt=""><img src="cloud3.gif" alt=""><img src="cloud4.gif" alt=""><img src="cloud1.gif" alt="" class="later"><img src="cloud2.gif" alt="" class="later"><img src="cloud3.gif" alt="" class="later"><img src="cloud4.gif" alt="" class="later"></div>
+    <div><img src="cloud1.gif" alt=""><img src="cloud2.gif" alt=""><img src="cloud3.gif" alt=""><img src="cloud4.gif" alt=""><img src="cloud1.gif" alt="" class="later"><img src="cloud2.gif" alt="" class="later"><img src="cloud3.gif" alt="" class="later"><img src="cloud4.gif" alt="" class="later"></div>
+  </div>
+  <div class="road-track" aria-hidden="true">
+    <div><img src="road-dreamcore.gif" alt=""><img src="road-dreamcore.gif" alt=""></div>
+    <div><img src="road-dreamcore.gif" alt=""><img src="road-dreamcore.gif" alt=""></div>
+    <div><img src="road-dreamcore.gif" alt=""><img src="road-dreamcore.gif" alt=""></div>
+    <div><img src="road-dreamcore.gif" alt=""><img src="road-dreamcore.gif" alt=""></div>
+  </div>
+  <svg class="bus-shadow" viewBox="0 0 2544 590" aria-hidden="true">
+    <defs>
+      <!-- Wobbly hand-drawn edge, then softened. -->
+      <filter id="shadow-edge" x="-5%" y="-100%" width="110%" height="300%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7"/>
+        <feDisplacementMap in="SourceGraphic" scale="14"/>
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+    </defs>
+    <!-- Flat under the body, from the front bumper (x 180) to the back (x 2500);
+         the wheels sit on it. -->
+    <path filter="url(#shadow-edge)" fill="#16213a" fill-opacity="0.45"
+          d="M210 528 C 220 506, 420 500, 900 503 S 2200 498, 2460 510
+             C 2540 516, 2530 548, 2440 552 S 1500 562, 900 558 S 230 556, 210 528 Z"/>
+  </svg>
+  <div class="bus">
+    <div class="inside">
+    <img src="Window.gif" alt="">
+    <div class="window-clouds" aria-hidden="true"><div class="window-cloud-track">
+      <div><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""></div>
+      <div><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""></div>
+      <div><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""><img src="cloud1.gif" alt=""></div>
+    </div></div>
+    <img src="InteriorBus.gif" alt="">
+    <div class="riders" id="back"></div>
+    <div class="riders" id="standing"></div>
+    <img src="OrangeStanding.gif" alt="" id="me" hidden>
+    <img src="FrontSeats.gif" alt="">
+    <div class="riders" id="front"></div>
+    </div>
+    <div class="frost"></div>
+    <img src="Window.gif" alt="" id="glass" style="opacity: 0.5"><!-- front glass -->
+    <div class="front-glass"></div>
+    <div class="texts" id="texts"></div>
+    <img src="BusCoque.gif" alt="">
+  </div>
+  <svg class="route" viewBox="40 50 1920 180" aria-hidden="true">
+    <defs>
+      <!-- Roughens every edge so it looks drawn by hand, like the bus. -->
+      <filter id="hand" x="-5%" y="-30%" width="110%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/>
+        <feDisplacementMap in="SourceGraphic" scale="9"/>
+      </filter>
+    </defs>
+    <g filter="url(#hand)" stroke="#676b6e" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M130 142 C 300 132, 380 150, 430 140 S 800 128, 1162 144 S 1600 132, 1862 140"
+            fill="none" stroke-width="16"/>
+      <g fill="#f6ecf0" stroke-width="14" id="stops">
+        <ellipse cx="130" cy="140" rx="64" ry="60" transform="rotate(-8 130 140)"/>
+        <ellipse cx="430" cy="141" rx="60" ry="64" transform="rotate(6 430 141)"/>
+        <ellipse cx="1162" cy="139" rx="65" ry="61" transform="rotate(-4 1162 139)"/>
+        <ellipse cx="1862" cy="141" rx="61" ry="65" transform="rotate(9 1862 141)"/>
+      </g>
+      <circle class="marker" id="marker" cx="130" cy="140" r="26"/>
+    </g>
+  </svg>
+  <button type="button" class="action" id="action" disabled></button>
+</div>
+<script src="rules.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
