@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bus</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; background: #7fa8cf; overflow: hidden; }
+  body { display: grid; place-items: center; }
+
+  /* The window we look through: canvas x 266 to 1246 (980 wide), full height.
+     Change these two numbers to move or widen the view. */
+  :root { --view-x: 266; --view-w: 980; }
+
+  .view {
+    position: relative;   /* no overflow clipping: the bus runs on to the screen edges */
+    width: min(100vw, 100vh * var(--view-w) / 650);
+    aspect-ratio: var(--view-w) / 650;
+  }
+  /* The button under the clear window. It sits in the view, not on the bus,
+     so it stays put while the bus slides. Sizes follow the view width (cqw). */
+  .view { container-type: inline-size; }
+  .action {
+    position: absolute;
+    left: 50%;
+    top: 74.5%;
+    translate: -50% 0;
+    z-index: 1;
+    padding: 0.4cqw 2.4cqw 0.6cqw;
+    /* Hand-drawn look, like the bus windows: grey wobbly outline, uneven corners. */
+    border: 0.35cqw solid #676b6e;
+    border-radius: 2.2cqw 0.8cqw 2cqw 0.9cqw / 0.9cqw 2cqw 0.8cqw 2.2cqw;
+    background: #f6ecf0;
+    color: #4f6ff0;
+    font: 700 2.4cqw/1 Gaegu, Times, serif;
+    rotate: -1deg;
+    cursor: pointer;
+    transition: rotate 0.15s, scale 0.15s;
+  }
+  /* The bus route, above the bus: four stops, unevenly spaced. */
+  .route {
+    position: absolute;
+    left: 50%;
+    top: 0.6cqw;
+    translate: -50% 0;
+    z-index: 1;
+    width: 48cqw;
+    height: auto;
+  }
+  .action:hover { rotate: 1deg; scale: 1.04; }
+  .action:active { scale: 0.97; }
+  .action:focus-visible { outline: 0.25cqw dashed #676b6e; outline-offset: 0.4cqw; }
+
+  /* Every GIF shares one 2544 x 590 canvas, so they stack exactly. */
+  .bus {
+    position: absolute;
+    top: calc(60 / 650 * 100%);   /* room above the bus for the route */
+    height: calc(590 / 650 * 100%);
+    width: calc(100% * 2544 / var(--view-w));
+    left: calc(-100% * var(--view-x) / var(--view-w));
+    transition: left 0.6s ease-in-out, --l 0.6s ease-in-out, --r 0.6s ease-in-out;
+  }
+  .bus img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* The bus bounces and rocks a little, like it's driving on a bumpy road. */
+  .bus {
+    transform-origin: 50% 90%;
+    animation: wiggle 1.7s ease-in-out infinite;
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    20%      { transform: translateY(-0.6%) rotate(-0.12deg); }
+    45%      { transform: translateY(0.2%) rotate(0.08deg); }
+    70%      { transform: translateY(-0.4%) rotate(0.14deg); }
+  }
+  @media (prefers-reduced-motion: reduce) { .bus { animation: none; } }
+
+  .inside { position: absolute; inset: 0; }
+
+  /* --l and --r: left and right edge of the clear window our character is in
+     (set by the script). Registered so they can glide from window to window. */
+  @property --l { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+  @property --r { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+
+  /* Frosted front glass everywhere except the clear window, with soft edges.
+     The bus body on top hides all of it except at the windows. */
+  /* Text written on the frosted windows. It uses the same mask as the frost,
+     so it disappears in the clear window. Sizes follow the bus (cqw = 1% of
+     the bus width). */
+  .bus { container-type: inline-size; }
+  .texts { position: absolute; inset: 0; }
+  .texts p {
+    position: absolute;
+    margin: 0;
+    overflow: hidden;
+    color: #fff;
+    font: 0.55cqw/1.15 Gaegu, Times, "Times New Roman", serif;
+  }
+  .frost, #glass, .front-glass, .texts {
+    --hole: linear-gradient(to right,
+      #000 calc(var(--l) - 1.4%), transparent calc(var(--l) + 0.6%),
+      transparent calc(var(--r) - 2%), #000 var(--r));
+    -webkit-mask: var(--hole);
+    mask: var(--hole);
+  }
+  .frost {
+    position: absolute;
+    inset: 0;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  /* Window.gif stops short of the small front window, so the glass is cut at
+     the pillar behind it (x 320) and a flat patch of the same blue covers the front. */
+  #glass { clip-path: inset(0 0 0 calc(320 / 2544 * 100%)); }
+  .front-glass {
+    position: absolute;
+    inset: 0;
+    background: #5580fb;
+    opacity: 0.5;
+    /* Traced from the front window opening in BusCoque.gif, so it never shows outside the bus. */
+    clip-path: polygon(7.39% 29.32%, 7.59% 29.32%, 7.74% 22.37%, 7.90% 20.34%, 8.06% 18.31%, 8.22% 16.61%, 8.37% 15.93%, 8.53% 14.92%, 8.69% 14.41%, 8.84% 13.90%, 9.00% 13.22%, 9.16% 12.71%, 9.32% 12.37%, 9.47% 12.20%, 9.63% 11.86%, 9.79% 11.86%, 9.94% 11.86%, 10.10% 12.20%, 10.26% 12.54%, 10.42% 13.22%, 10.57% 14.07%, 10.73% 15.93%, 10.89% 21.19%, 11.05% 29.15%, 11.20% 35.08%, 11.36% 40.00%, 11.52% 47.63%, 11.67% 49.66%, 11.87% 49.66%, 11.87% 53.56%, 11.67% 53.56%, 11.52% 54.92%, 11.36% 55.76%, 11.20% 56.10%, 11.05% 56.61%, 10.89% 56.78%, 10.73% 56.95%, 10.57% 56.78%, 10.42% 56.78%, 10.26% 56.44%, 10.10% 56.44%, 9.94% 56.27%, 9.79% 56.10%, 9.63% 55.76%, 9.47% 55.42%, 9.32% 55.08%, 9.16% 54.92%, 9.00% 54.41%, 8.84% 53.90%, 8.69% 52.88%, 8.53% 51.36%, 8.37% 49.66%, 8.22% 47.46%, 8.06% 45.76%, 7.90% 44.24%, 7.74% 41.86%, 7.59% 35.76%, 7.39% 35.76%);
+  }
+
+  /* The rider you move: slides along the bus with the view, bobbing as it walks. */
+  #me { transition: translate 0.6s ease-in-out; }
+  #me.walking { animation: step 0.3s ease-in-out 2; }
+  @keyframes step { 50% { transform: translateY(-1.2%); } }
+</style>
+</head>
+<body>
+<div class="view">
+  <div class="bus">
+    <div class="inside">
+    <img src="Window.gif" alt="">
+    <img src="InteriorBus.gif" alt="">
+    <img src="BlueSitting.gif" alt="">
+    <img src="BrownSitting.gif" alt="">
+    <img src="OrangeSitting.gif" alt="">
+    <img src="OrangeSitting.gif" alt="" id="me-back" hidden>
+    <img src="BlueStanding.gif" alt="">
+    <img src="BrownStanding.gif" alt="">
+    <img src="OrangeStanding.gif" alt="" id="me">
+    <img src="FrontSeats.gif" alt="">
+    <img src="BlueSittingFront.gif" alt="">
+    <img src="BrownSittingFront.gif" alt="">
+    <img src="OrangeSittingFront.gif" alt="">
+    <img src="OrangeSittingFront.gif" alt="" id="me-front" hidden>
+    </div>
+    <div class="frost"></div>
+    <img src="Window.gif" alt="" id="glass" style="opacity: 0.5"><!-- front glass -->
+    <div class="front-glass"></div>
+    <div class="texts" id="texts"></div>
+    <img src="BusCoque.gif" alt="">
+  </div>
+  <svg class="route" viewBox="40 50 1920 180" aria-hidden="true">
+    <defs>
+      <!-- Roughens every edge so it looks drawn by hand, like the bus. -->
+      <filter id="hand" x="-5%" y="-30%" width="110%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/>
+        <feDisplacementMap in="SourceGraphic" scale="9"/>
+      </filter>
+    </defs>
+    <g filter="url(#hand)" stroke="#676b6e" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M130 142 C 300 132, 380 150, 430 140 S 800 128, 1162 144 S 1600 132, 1862 140"
+            fill="none" stroke-width="16"/>
+      <g fill="#f6ecf0" stroke-width="14">
+        <ellipse cx="130" cy="140" rx="64" ry="60" transform="rotate(-8 130 140)"/>
+        <ellipse cx="430" cy="141" rx="60" ry="64" transform="rotate(6 430 141)"/>
+        <ellipse cx="1162" cy="139" rx="65" ry="61" transform="rotate(-4 1162 139)"/>
+        <ellipse cx="1862" cy="141" rx="61" ry="65" transform="rotate(9 1862 141)"/>
+      </g>
+    </g>
+  </svg>
+  <button type="button" class="action">an action to do</button>
+</div>
+<script>
+  // Left edge of each bus window on the 2544 px canvas, front to back.
+  const windows = [190, 318, 615, 912, 1240, 1548, 1866, 2163];
+  const ME_X = 384;               // middle of the rider as drawn (canvas px)
+  const VIEW_W = 980;
+
+  // Two steps per window: its left edge, then halfway to the next one.
+  const stops = windows.flatMap((x, i) => {
+    const next = windows[i + 1] ?? x + 300;
+    return [x, (x + next) / 2];
+  });
+  const HOME = 2;                 // the rider is drawn at the start of the 2nd window
+  let at = HOME;
+
+  const root = document.documentElement;
+  const me = document.getElementById("me");
+
+  // The rider walks window to window, and the view keeps it in the middle.
+  // Cut the window the character is in out of the frost and the glass.
+  // A window's strip runs from its left edge to the next window's left edge;
+  // the bus body covers the pillar between them.
+  const bus = document.querySelector(".bus");
+  const clearMyWindow = () => {
+    const x = ME_X + stops[at] - stops[HOME];
+    let i = windows.findLastIndex(w => w <= x);
+    if (i < 0) i = 0;
+    const pct = v => `${v / 2544 * 100}%`;
+    bus.style.setProperty("--l", pct(windows[i]));
+    bus.style.setProperty("--r", pct(windows[i + 1] ?? 2544));
+    // Centre the view on this window's opening (it ends at the pillar,
+    // about 32 px before the next window starts).
+    const right = (windows[i + 1] ?? windows[i] + 302) - 32;
+    root.style.setProperty("--view-x", (windows[i] + right) / 2 - VIEW_W / 2);
+  };
+
+  const show = () => {
+    clearMyWindow();
+    const shift = stops[at] - stops[HOME];
+    me.style.translate = `${shift / 2544 * 100}% 0`;
+    me.classList.remove("walking");
+    void me.offsetWidth;          // restart the bob on every key press
+    me.classList.add("walking");
+  };
+
+  // --- Sitting down ---------------------------------------------------------
+  // Middle of each seat on the canvas, measured from InteriorBus.gif (back row)
+  // and FrontSeats.gif (front row). `taken` seats already have someone on them.
+  const seats = {
+    back: [409, 528, 685, 804, 997, 1134, 1327, 1438, 1634, 1765, 1951, 2057, 2256, 2383],
+    front: [400, 517, 677, 788, 994, 1124, 1322, 1431, 1628, 1754, 1946, 2052, 2256, 2375],
+  };
+  const taken = {
+    back: new Set([685, 804, 1438]),      // OrangeSitting, BrownSitting, BlueSitting
+    front: new Set([994, 1124, 1322]),    // Blue-, Brown-, OrangeSittingFront
+  };
+  // The seat each orange sitting drawing is already drawn on.
+  // `offset`: middle of the sitting drawing minus the middle of its seat.
+  const sitImg = {
+    back: { img: document.getElementById("me-back"), drawnOn: 685, offset: -27 },
+    front: { img: document.getElementById("me-front"), drawnOn: 1322, offset: -47 },
+  };
+  const WAIT = 3000;   // ms standing still before sitting
+  const NEAR = 60;     // how close (canvas px) a seat must be
+
+  let seated = null;   // { row, x } while sitting
+  let timer;
+
+  const meX = () => ME_X + stops[at] - stops[HOME];
+
+  // Back row first; front row only when the back seat here is taken.
+  const freeSeatHere = () => {
+    for (const row of ["back", "front"]) {
+      const x = seats[row].find(s => Math.abs(s - meX()) <= NEAR && !taken[row].has(s));
+      if (x !== undefined) return { row, x };
+    }
+    return null;
+  };
+
+  const sit = () => {
+    const seat = freeSeatHere();
+    if (!seat) return;
+    seated = seat;
+    taken[seat.row].add(seat.x);
+    const { img, drawnOn } = sitImg[seat.row];
+    img.style.translate = `${(seat.x - drawnOn) / 2544 * 100}% 0`;
+    img.hidden = false;
+    me.hidden = true;  };
+
+  const standUp = () => {
+    taken[seated.row].delete(seated.x);
+    sitImg[seated.row].img.hidden = true;
+    me.hidden = false;
+    seated = null;
+  };
+
+  const waitThenSit = () => {
+    clearTimeout(timer);
+    timer = setTimeout(sit, WAIT);
+  };
+
+  addEventListener("keydown", e => {
+    if (e.key === "ArrowLeft" && at > 0) at--;
+    else if (e.key === "ArrowRight" && at < stops.length - 1) at++;
+    else return;
+    e.preventDefault();
+    if (seated) standUp();
+    show();
+    waitThenSit();
+  });
+
+  // Start centred, without sliding in.
+  // --- Placeholder text on the frosted windows (random Latin for now) --------
+  const WORDS = ("lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod " +
+    "tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud " +
+    "exercitation ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure " +
+    "in reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint " +
+    "occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum").split(" ");
+  const pick = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+  const sentence = () => {
+    const s = Array.from({ length: 4 + Math.floor(Math.random() * 7) }, pick).join(" ");
+    return s[0].toUpperCase() + s.slice(1) + ".";
+  };
+  const pct = (v, of) => `${v / of * 100}%`;
+  const TOP = 125, BOTTOM = 290, PAD = 45;          // inside a window opening (canvas px)
+  windows.slice(1).forEach((left, n) => {          // the small front window stays empty
+    const right = (windows[n + 2] ?? left + 302) - 32;
+    const p = document.createElement("p");
+    p.style.left = pct(left + PAD, 2544);
+    p.style.width = pct(right - left - 2 * PAD, 2544);
+    p.style.top = pct(TOP, 590);
+    p.style.height = pct(BOTTOM - TOP, 590);
+    p.textContent = Array.from({ length: 6 }, sentence).join(" ");
+    document.getElementById("texts").append(p);
+  });
+
+  bus.style.transition = "none";
+  show();
+  me.classList.remove("walking");
+  waitThenSit();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    bus.style.transition = "";
+  }));
+</script>
+</body>
+</html>
