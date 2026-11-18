@@ -429,7 +429,8 @@ function drawRoad() {
   noStroke();
   fill("#3f546e");
   rect(-1e4, VIEW_H + 100, 2e4, 1e4);
-  const offset = Math.floor(drive / (60000 / 360)) * (2 * W / 360);
+  // One loop moves two tiles (which looks the same), then starts over.
+  const offset = (Math.floor(drive / (60000 / 360)) % 360) * (2 * W / 360);
   for (let n = 0; n < 4; n++) {
     ctx.save();
     ctx.translate(VIEW_W / 2 - 3 * W + n * W + offset, BUS_TOP);
