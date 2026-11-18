@@ -420,25 +420,33 @@ function drawTurn() {
 }
 
 // The road scrolls right, slow and choppy (6 jumps a second, two tiles a
-// minute). Every second tile is flipped so the edges meet; under each, a copy
-// upside down carries the road down tall screens; further down, its colour.
+// minute). Every second tile is flipped so the edges meet. Below the drawing,
+// its plain bottom band (under the dashes, y 500 to 590) is repeated down to
+// the bottom of the screen, every second band upside down so they meet
+// without a line: the same grain all the way, one row of dashes.
+const PLAIN_TOP = 500;
 function drawRoad() {
   const ctx = drawingContext;
+  const s = sprites.road, frame = frameOf(s, millis());
+  const band = H - PLAIN_TOP;
+  const bottom = (height - viewTop) / k;              // screen bottom, in view units
   push();
   toView();
-  noStroke();
-  fill("#3f546e");
-  rect(-1e4, VIEW_H + 100, 2e4, 1e4);
   // One loop moves two tiles (which looks the same), then starts over.
   const offset = (Math.floor(drive / (60000 / 360)) % 360) * (2 * W / 360);
   for (let n = 0; n < 4; n++) {
     ctx.save();
     ctx.translate(VIEW_W / 2 - 3 * W + n * W + offset, BUS_TOP);
     if (n % 2) { ctx.translate(W, 0); ctx.scale(-1, 1); }
-    paint(ctx, sprites.road);
-    ctx.translate(0, 2 * H);
-    ctx.scale(1, -1);
-    paint(ctx, sprites.road);
+    paint(ctx, s);
+    // Bands overlap by a unit so no sky shows between them.
+    for (let y = H - 1, m = 0; BUS_TOP + y < bottom; y += band - 1, m++) {
+      ctx.save();
+      ctx.translate(0, y);
+      if (m % 2 === 0) { ctx.translate(0, band); ctx.scale(1, -1); }
+      ctx.drawImage(frame, 0, PLAIN_TOP - s.y, s.w, band, s.x, 0, s.w, band);
+      ctx.restore();
+    }
     ctx.restore();
   }
   pop();
