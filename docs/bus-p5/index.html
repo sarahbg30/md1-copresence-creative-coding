@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>the bus (p5)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #7fa8cf; }
+  /* No scrolling, zooming or text selection while tapping on a phone. */
+  body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<!-- The p5.js version of the bus. The rules and the drawings are shared with ../bus/. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+<!-- Bump ?v= on every change, so phones don't keep an old copy. -->
+<script src="../bus/rules.js?v=3"></script>
+<script src="sketch.js?v=1"></script>
+</body>
+</html>
