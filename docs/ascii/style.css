@@ -1,19 +1,17 @@
-/* Everything is text: one monospace font, straight on a pastel sky
-   whose colours come from the real weather (weather.js). */
+/* Everything is text: one monospace font, black on plain white.
+   (The weather no longer colours the background.) */
 @property --sky-blue { syntax: '<color>'; inherits: true; initial-value: #9fcaf2; }
 @property --sky-top { syntax: '<color>'; inherits: true; initial-value: #c3e0fa; }
 @property --sky-bottom { syntax: '<color>'; inherits: true; initial-value: #f8f2fb; }
 
 :root {
   color-scheme: light;
-  --paper: var(--sky-bottom); /* the colour of text turned inside out */
+  --paper: #fff; /* the colour of text turned inside out */
   --blur: blur(5px); /* hides the clouds behind text, keeps the sky's colour */
   --ink: #111;
   --cloud: rgba(40, 50, 90, 0.32);
   --mono: "Courier New", Courier, monospace;
-  /* Always a band of blue at the very top, then the weather's colours. */
-  background: linear-gradient(var(--sky-blue), var(--sky-top) 40%, var(--sky-bottom)) fixed;
-  transition: --sky-blue 4s, --sky-top 4s, --sky-bottom 4s;
+  background: #fff;
 }
 
 * { box-sizing: border-box; }
