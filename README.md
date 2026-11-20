@@ -17,3 +17,7 @@ In the p5.js version: arrow keys (or the ‹ › buttons on a phone, held sidewa
 - Illustrated: `docs/` (`index.html`, `client.js`, `game.js`)
 - ASCII: `docs/ascii/`
 - p5.js: `docs/bus-p5/sketch.js`, using the rules and drawings in `docs/bus/`
+
+## Dreamcore filter
+
+A tool to give photos, drawings and GIFs a dreamcore look and export them as animated GIFs: [open it](https://sarahbg30.github.io/md1-copresence-creative-coding/dreamcore/). Everything runs in the browser; nothing is uploaded. Code: `docs/dreamcore/index.html`.
