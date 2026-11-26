@@ -56,6 +56,11 @@ const clock = () => (performance.now() - t0) * speed;
 
 const ride = R.createRide({ now: 0 });
 const me = R.you(ride);
+// You start at the bus stop and are on the bus after 10 s, straight cut. The rules say 2 to 3 minutes: 120000 + Math.random() * 60000.
+// rules.js has it after 4 s, for the other prototypes.
+ride.nextStopAt = 10000;
+// One more person waits at the start; the bench holds three, so they stand.
+for (let i = 0; i < 1; i++) ride.queue.push(R.newRider(ride, true).id);
 
 // --- Loading the drawings ------------------------------------------------------
 // Every drawing fills a whole 2544 x 590 canvas, which is a lot of memory
@@ -70,6 +75,9 @@ const TO_LOAD = [
   ["coque", N + "BusCoque.png"], ["road", N + "road.png"],
   ["cloud1", N + "cloud1.png"], ["cloud2", N + "cloud2.png"], ["cloud3", N + "cloud3.png"], ["cloud4", N + "cloud4.png"],
   ...["Blue", "Brown", "Orange"].flatMap(c => [[c + "Sitting", N + c + "Sitting.png"], [c + "SittingFront", N + c + "SittingFront.png"], [c + "Standing", N + c + "Standing.png"]]),
+  // The bus stop: shelter, sidewalk, and someone of each colour on the bench.
+  ["StopShelter", N + "StopShelter.png"], ["StopGround", N + "StopGround.png"],
+  ...["Blue", "Brown", "Orange"].map(c => [c + "Stop", N + c + "Stop.png"]),
 ];
 let loaded = 0, ready = false, failed = null;
 
@@ -288,6 +296,8 @@ function scatter({ dy: [dyLo, dyHi], scale: [sLo, sHi] }) {
 // the bus at window height, seen through the glass (a quarter), and in
 // front of the bus across the windows, bigger and a bit faster because they
 // are closer (a quarter).
+// At the stop, with nothing moving, the birds fly this much faster.
+const BIRD_AT_STOP = 4;
 const BIRD = { frames: 8, w: 176, h: 216, fps: 8, scale: 0.3, speed: 0.05, step: 500 };   // speed: units per ms
 const FRONT_BIRD = { scale: 0.42, speed: 0.07 };
 // When the view slides along the bus, the birds slide with it, the far ones
@@ -311,9 +321,9 @@ function moveBirds(now) {
     for (let n = 0, many = 1 + Math.floor(random(3)); n < many; n++) {
       birds.push({ kind, start: now + n * random(250, 600), x0: screenRight() + 80 + n * 40 + viewX.at(now) * BIRD_DEPTH[kind],
         y: kind === "sky" ? Math.min(50, y + random(-20, 20)) : y + random(-25, 25),
-        phase: random(1000), speed: (front ? FRONT_BIRD.speed : BIRD.speed) * random(0.85, 1.15) });
+        phase: random(1000), speed: (front ? FRONT_BIRD.speed : BIRD.speed) * random(0.85, 1.15) * (atStop() ? BIRD_AT_STOP : 1) });
     }
-    nextFlock = now + random(9000, 22000);
+    nextFlock = now + random(9000, 22000) / (atStop() ? 2 : 1);
   }
   birds = birds.filter(b => b.x0 - (now - b.start) * b.speed - viewX.at(now) * BIRD_DEPTH[b.kind] > screenLeft() - 80);
 }
@@ -363,17 +373,17 @@ const FRONT_CLOUD = { speed: 0.035, step: 500, every: [25000, 50000] };   // uni
 let frontCloud = null, nextFrontCloud = 12000;
 
 function drawFrontCloud(ctx) {
-  if (!frontCloud && drive > nextFrontCloud) {
-    frontCloud = { c: 1 + Math.floor(random(4)), from: drive, y: random(40, 120), scale: random(0.7, 1) };
+  if (!frontCloud && sky > nextFrontCloud) {
+    frontCloud = { c: 1 + Math.floor(random(4)), from: sky, y: random(40, 120), scale: random(0.7, 1) };
   }
   if (!frontCloud) return;
   const s = sprites["cloud" + frontCloud.c];
-  const jumped = Math.floor((drive - frontCloud.from) / FRONT_CLOUD.step) * FRONT_CLOUD.step;
+  const jumped = Math.floor((sky - frontCloud.from) / FRONT_CLOUD.step) * FRONT_CLOUD.step;
   const half = s.w * frontCloud.scale / 2;
   const x = screenLeft() - half + jumped * FRONT_CLOUD.speed;
   if (x - half > screenRight()) {
     frontCloud = null;
-    nextFrontCloud = drive + random(...FRONT_CLOUD.every);
+    nextFrontCloud = sky + random(...FRONT_CLOUD.every);
     return;
   }
   ctx.save();
@@ -416,6 +426,10 @@ const portrait = () => touchScreen() && height > width;
 // they all follow `drive`, which stands still at the stops.
 const STOP_PAUSE = 4000;
 let drive = 0, lastMillis = 0, stoppedUntil = 0;
+// The clouds follow `sky`: like `drive`, but barely moving while you wait at the stop.
+let sky = 0;
+const SKY_AT_STOP = 0.1;
+const atStop = () => me.where === "queue" && !ride.over;
 
 // Keyframes of the bounce, 1.7 s: [time, lift (units), tilt (deg)]; and the
 // shadow's [time, width scale, height scale, opacity].
@@ -506,12 +520,15 @@ function draw() {
   for (const line of R.tick(ride, t)) {
     centreView(now);
     write(line);
-    if (line.text.startsWith("The bus stops")) stoppedUntil = t + STOP_PAUSE * speed;
+    if (line.text.startsWith("The bus stops")) { stoppedUntil = t + STOP_PAUSE * speed; }
   }
   centreView(now);
   const stopped = ride.over || t < stoppedUntil;
   if (!stopped) drive += now - lastMillis;
+  if (!stopped) sky += (now - lastMillis) * (atStop() ? SKY_AT_STOP : 1);
   lastMillis = now;
+
+  if (atStop()) { drawStop(now, t); return; }
 
   drawRoad();
   drawSky();
@@ -527,8 +544,97 @@ function draw() {
   drawFrontCloud(drawingContext);
   drawBirds(drawingContext, now, "front");
   pop();
-  drawRoute(t);
   drawButtons(now);
+}
+
+// --- The bus stop -------------------------------------------------------------------
+// While you wait in the line, the view is the stop: the shelter on its
+// sidewalk, the first three people of the line on the bench (you always among
+// them) with their names, and on the shelter's blue panel the stop, the time
+// until the bus and your one thing to do. In the last seconds the bus drives
+// in from the right; if it leaves without you (full), it drives off to the left.
+// The stop drawings share the bus canvas (2544 x 590). They are seen from
+// further away than the bus: STOP_SCALE of the size, the shelter's middle
+// (STOP_CX) in the middle of the view, the canvas bottom on the view bottom.
+// The road runs below the sidewalk: the whole stop is lifted by STOP_LIFT
+// (stop units) to make room, and the road drawn ROAD_DOWN lower than on its
+// own canvas, its top just under the sidewalk.
+const STOP_LIFT = 105, ROAD_DOWN = 150;
+const STOP_SCALE = 0.9, STOP_CX = 1342;   // 1342: the middle of the shelter (818 to 1867)
+// Where the one who doesn't fit on the bench stands, under the shelter: x is
+// the centre of their feet, feet a little below the top of the sidewalk there
+// (543). And how much bigger than on the bus (the bench people are bigger too).
+const STAND = [{ x: 960, feet: 556 }], STAND_SCALE = 1.21;
+const BENCH = [1443, 1550, 1664];            // left edge of each seat on the bench
+const PANEL = { x: 1245, y: 300, w: 190 };   // middle and width of the blue panel
+function toStop(g = window) {
+  toView(g);
+  g.translate(VIEW_W / 2, VIEW_H);
+  g.scale(STOP_SCALE);
+  g.translate(-STOP_CX, -H - STOP_LIFT);
+}
+
+function benchRiders() {
+  const line = ride.queue.map(id => ride.riders[id]);
+  const bench = line.slice(0, 3);
+  if (!bench.includes(me)) bench[bench.length - 1] = me;
+  return bench;
+}
+
+function drawStop(now, t) {
+  const ctx = drawingContext;
+  drawSky();
+  moveBirds(now);
+  push();
+  toView();
+  drawBirds(ctx, now, "sky");
+  pop();
+  push();
+  toStop();
+  // The road below the sidewalk, standing still, across the whole screen
+  // (every second tile flipped so the edges meet, like on the bus).
+  const road = sprites.road;
+  const stopX = sx => STOP_CX + ((sx - viewLeft) / k - VIEW_W / 2) / STOP_SCALE;
+  for (let n = Math.floor(stopX(0) / W) - 1; n * W < stopX(width); n++) {
+    ctx.save();
+    ctx.translate(n * W, ROAD_DOWN);
+    if (n % 2) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+    paint(ctx, road);
+    // Its plain bottom band (under the dashes) again below it, down to the
+    // bottom of the screen: every second one upside down.
+    const band = H - PLAIN_TOP, frame = frameOf(road, now);
+    const bottom = H + STOP_LIFT + ((height - viewTop) / k - VIEW_H) / STOP_SCALE - ROAD_DOWN;
+    for (let y = H - 1, m = 0; y < bottom; y += band - 1, m++) {
+      ctx.save();
+      ctx.translate(0, y);
+      if (m % 2 === 0) { ctx.translate(0, band); ctx.scale(1, -1); }
+      ctx.drawImage(frame, 0, PLAIN_TOP - road.y, road.w, band, road.x, 0, road.w, band);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  paint(ctx, sprites.StopGround);
+  paint(ctx, sprites.StopShelter);
+  benchRiders().forEach((r, j) => {
+    const s = sprites[FILE[r.colour] + "Stop"];
+    paint(ctx, s, BENCH[j] - s.x);
+  });
+  const bench = benchRiders();
+  ride.queue.map(id => ride.riders[id]).filter(r => !bench.includes(r)).slice(0, STAND.length).forEach((r, j) => {
+    const s = sprites[FILE[r.colour] + "Standing"];
+    ctx.save();
+    ctx.translate(STAND[j].x, STAND[j].feet);
+    ctx.scale(STAND_SCALE, STAND_SCALE);
+    ctx.drawImage(frameOf(s, now), -s.w / 2, -s.h, s.w, s.h);
+    ctx.restore();
+  });
+  pop();
+
+  push();
+  toView();
+  drawFrontCloud(ctx);
+  drawBirds(ctx, now, "front");
+  pop();
 }
 
 function drawLoading() {
@@ -558,7 +664,7 @@ function drawTurn() {
 // the bottom of the screen, every second band upside down so they meet
 // without a line: the same grain all the way, one row of dashes.
 const PLAIN_TOP = 500;
-function drawRoad() {
+function drawRoad(still = false, up = 0) {
   const ctx = drawingContext;
   const s = sprites.road, frame = frameOf(s, millis());
   const band = H - PLAIN_TOP;
@@ -566,14 +672,14 @@ function drawRoad() {
   push();
   toView();
   // One loop moves two tiles (which looks the same), then starts over.
-  const offset = (Math.floor(drive / (60000 / 360)) % 360) * (2 * W / 360);
+  const offset = still ? 0 : (Math.floor(drive / (60000 / 360)) % 360) * (2 * W / 360);
   for (let n = 0; n < 4; n++) {
     ctx.save();
-    ctx.translate(VIEW_W / 2 - 3 * W + n * W + offset, BUS_TOP);
+    ctx.translate(VIEW_W / 2 - 3 * W + n * W + offset, BUS_TOP - up);
     if (n % 2) { ctx.translate(W, 0); ctx.scale(-1, 1); }
     paint(ctx, s);
     // Bands overlap by a unit so no sky shows between them.
-    for (let y = H - 1, m = 0; BUS_TOP + y < bottom; y += band - 1, m++) {
+    for (let y = H - 1, m = 0; BUS_TOP - up + y < bottom; y += band - 1, m++) {
       ctx.save();
       ctx.translate(0, y);
       if (m % 2 === 0) { ctx.translate(0, band); ctx.scale(1, -1); }
@@ -590,7 +696,7 @@ function drawSky() {
   const ctx = drawingContext, s = 0.7, tile = W * s;
   push();
   toView();
-  const offset = (Math.floor(drive / 500) * (tile / 480)) % tile;
+  const offset = (Math.floor(sky / 500) * (tile / 480)) % tile;
   for (let n = 0; n < 3; n++) {
     ctx.save();
     ctx.translate(VIEW_W / 2 - 2 * tile + n * tile + offset, 4 - 82 * s);

@@ -373,6 +373,6 @@
   }
 
   globalThis.BusRules = {
-    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, ACTIONS, YOUR_ACTIONS, MIXES, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
+    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, newRider, ACTIONS, YOUR_ACTIONS, MIXES, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
   };
 })();
