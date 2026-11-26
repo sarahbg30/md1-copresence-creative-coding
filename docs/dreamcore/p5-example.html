@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dreamcore-p5 example</title>
+<style>
+  html, body { margin: 0; background: #7fa8cf; font: 15px/1.4 system-ui, sans-serif; color: #fff; }
+  p { margin: 12px 16px; }
+  canvas { display: block; max-width: 100%; height: auto !important; }
+</style>
+</head>
+<body>
+<p>Top: the naked drawings. Bottom: the same through <code>dreamcore()</code>, with Sarah's settings.</p>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+<script src="dreamcore-p5.js"></script>
+<script>
+// Every naked drawing fills a 2544 x 590 canvas: interior, seats, bus body.
+const NAMES = ["InteriorBus", "FrontSeats", "BusCoque"];
+let naked = [], dream = [];
+
+function preload() {
+  naked = NAMES.map(n => loadImage("../bus/naked/" + n + ".png"));
+}
+
+function setup() {
+  createCanvas(1272, 590);
+  // Filter once, here in setup. Then show the frames in turn in draw.
+  dream = naked.map(img => dreamcore(img));
+}
+
+function draw() {
+  background("#7fa8cf");
+  for (const img of naked) image(img, 0, 0, 1272, 295);
+  for (const frames of dream) image(dreamFrame(frames), 0, 295, 1272, 295);
+}
+</script>
+</body>
+</html>

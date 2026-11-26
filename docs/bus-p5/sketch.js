@@ -1,7 +1,7 @@
 // "the bus", drawn with p5.js.
 //
 // The same game as ../bus/: the rules come from ../bus/rules.js (BusRules),
-// the drawings are the same GIFs. Here everything is painted on one canvas,
+// the drawings are the same, without the filter (../bus/naked/). Here everything is painted on one canvas,
 // every frame, instead of stacking <img> tags.
 //
 // Every drawing shares one 2544 x 590 canvas ("bus units"). We look at a
@@ -39,7 +39,7 @@ const dropFor = (colour, row) => {
 const standX = row => seatX[R.LANE.window][row] - 25;
 const windowOf = row => 1 + Math.floor(row / 2);    // two rows per window; window 0 is the driver's
 
-// Traced from the small front window in BusCoque.gif (percent of the bus).
+// Traced from the small front window in BusCoque (percent of the bus).
 const FRONT_GLASS = "7.39 29.32,7.59 29.32,7.74 22.37,7.90 20.34,8.06 18.31,8.22 16.61,8.37 15.93,8.53 14.92,8.69 14.41,8.84 13.90,9.00 13.22,9.16 12.71,9.32 12.37,9.47 12.20,9.63 11.86,9.79 11.86,9.94 11.86,10.10 12.20,10.26 12.54,10.42 13.22,10.57 14.07,10.73 15.93,10.89 21.19,11.05 29.15,11.20 35.08,11.36 40.00,11.52 47.63,11.67 49.66,11.87 49.66,11.87 53.56,11.67 53.56,11.52 54.92,11.36 55.76,11.20 56.10,11.05 56.61,10.89 56.78,10.73 56.95,10.57 56.78,10.42 56.78,10.26 56.44,10.10 56.44,9.94 56.27,9.79 56.10,9.63 55.76,9.47 55.42,9.32 55.08,9.16 54.92,9.00 54.41,8.84 53.90,8.69 52.88,8.53 51.36,8.37 49.66,8.22 47.46,8.06 45.76,7.90 44.24,7.74 41.86,7.59 35.76,7.39 35.76"
   .split(",").map(p => p.split(" ").map(Number)).map(([x, y]) => [x / 100 * W, y / 100 * H]);
 const SHADOW = "M210 528 C 220 506, 420 500, 900 503 S 2200 498, 2460 510 C 2540 516, 2530 548, 2440 552 S 1500 562, 900 558 S 230 556, 210 528 Z";
@@ -58,15 +58,18 @@ const ride = R.createRide({ now: 0 });
 const me = R.you(ride);
 
 // --- Loading the drawings ------------------------------------------------------
-// p5 unpacks every GIF frame at full canvas size, which is a lot of memory
-// for 18 drawings of 2544 x 590. So each GIF is loaded on its own, cut down
+// Every drawing fills a whole 2544 x 590 canvas, which is a lot of memory
+// for 18 drawings. So each one is loaded on its own, cut down
 // to the box its drawing actually fills, and the full frames are let go.
 const sprites = {};
+// The "naked" drawings (../bus/naked/, no filter baked in), one picture each;
+// dreamcore-assets.js gives each one Sarah's dreamcore filter while loading.
+const N = "naked/";
 const TO_LOAD = [
-  ["window", "Window.gif"], ["interior", "InteriorBus.gif"], ["seats", "FrontSeats.gif"],
-  ["coque", "BusCoque.gif"], ["road", "road-dreamcore.gif"],
-  ["cloud1", "cloud1.gif", true], ["cloud2", "cloud2.gif", true], ["cloud3", "cloud3.gif", true], ["cloud4", "cloud4.gif", true],
-  ...["Blue", "Brown", "Orange"].flatMap(c => [[c + "Sitting", c + "Sitting.gif"], [c + "SittingFront", c + "SittingFront.gif"], [c + "Standing", c + "Standing.gif"]]),
+  ["window", N + "Window.png"], ["interior", N + "InteriorBus.png"], ["seats", N + "FrontSeats.png"],
+  ["coque", N + "BusCoque.png"], ["road", N + "road.png"],
+  ["cloud1", N + "cloud1.png"], ["cloud2", N + "cloud2.png"], ["cloud3", N + "cloud3.png"], ["cloud4", N + "cloud4.png"],
+  ...["Blue", "Brown", "Orange"].flatMap(c => [[c + "Sitting", N + c + "Sitting.png"], [c + "SittingFront", N + c + "SittingFront.png"], [c + "Standing", N + c + "Standing.png"]]),
 ];
 let loaded = 0, ready = false, failed = null;
 
@@ -78,8 +81,10 @@ function loadAll() {
     if (asked === TO_LOAD.length) return;
     const [key, src, white] = TO_LOAD[asked++];
     loadImage(A + src, img => {
-      sprites[key] = bake(img, white);
-      if (++loaded === TO_LOAD.length) start(); else next();
+      bake(img, white).then(s => {
+        sprites[key] = s;
+        if (++loaded === TO_LOAD.length) start(); else next();
+      }, () => { failed = src; });
     }, () => { failed = src; });
   };
   for (let n = 0; n < 3; n++) next();
@@ -88,7 +93,10 @@ function loadAll() {
 // Crop every frame to the box the drawing fills. Clouds are drawn pink;
 // `white` turns them white, keeping a little of their shading
 // (like CSS grayscale(1) brightness(1.7) contrast(0.85)).
-function bake(img, white) {
+// The crop is done on the pixels themselves, with no canvas in between:
+// Safari on iPhone swapped red and blue when big frames went from one
+// canvas to another (the blue bus came out orange).
+async function bake(img, white) {
   const frames = img.gifProperties
     ? img.gifProperties.frames.map(f => ({ data: f.image, delay: f.delay || 100 }))
     : [{ data: img.canvas.getContext("2d").getImageData(0, 0, img.width, img.height), delay: 1000 }];
@@ -108,19 +116,29 @@ function bake(img, white) {
   }
   if (x1 < 0) { x0 = y0 = 0; x1 = y1 = 0; }
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
-  const tmp = document.createElement("canvas");
-  tmp.width = w; tmp.height = h;
-  const tc = tmp.getContext("2d");
-  const out = frames.map(({ data }) => {
+  const out = await Promise.all(frames.map(({ data }) => {
     if (white) whiten(data, x0, y0, x1, y1);
-    tc.putImageData(data, 0, 0, x0, y0, bw, bh);
-    const c = document.createElement("canvas");
+    const crop = new ImageData(bw, bh);
+    for (let y = 0; y < bh; y++) {
+      const from = ((y0 + y) * w + x0) * 4;
+      crop.data.set(data.data.subarray(from, from + bw * 4), y * bw * 4);
+    }
+    return crop;
+  }));
+  // The filter turns one picture into a few, with moving grain.
+  let crops = out, delays = frames.map(f => f.delay);
+  if (DreamAssets.on && out.length === 1) {
+    crops = DreamAssets.apply(out[0]);
+    delays = crops.map(() => DreamAssets.DELAY);
+  }
+  const pics = await Promise.all(crops.map(crop => {
+    if (window.createImageBitmap) return createImageBitmap(crop);
+    const c = document.createElement("canvas"); // older browsers
     c.width = bw; c.height = bh;
-    c.getContext("2d").drawImage(tmp, x0, y0, bw, bh, 0, 0, bw, bh);
+    c.getContext("2d").putImageData(crop, 0, 0);
     return c;
-  });
-  const delays = frames.map(f => f.delay);
-  return { x: x0, y: y0, w: bw, h: bh, frames: out, delays, total: delays.reduce((a, b) => a + b, 0) };
+  }));
+  return { x: x0, y: y0, w: bw, h: bh, frames: pics, delays, total: delays.reduce((a, b) => a + b, 0) };
 }
 
 function whiten(data, x0, y0, x1, y1) {
@@ -261,6 +279,111 @@ function scatter({ dy: [dyLo, dyHi], scale: [sLo, sHi] }) {
     };
   });
 }
+// --- Birds -------------------------------------------------------------------------
+// Sarah's yellow bird (../bus/yellow-bird-anim-8ips), cut down to one strip of
+// 8 frames, 176 x 216 each, flapping at 8 frames a second. Now and then one
+// to three of them fly across the way the bus drives (right to left, so the
+// drawing is flipped to face left), in jumps like the clouds.
+// Three kinds of flock: in the sky above the roof (half of them), behind
+// the bus at window height, seen through the glass (a quarter), and in
+// front of the bus across the windows, bigger and a bit faster because they
+// are closer (a quarter).
+const BIRD = { frames: 8, w: 176, h: 216, fps: 8, scale: 0.3, speed: 0.05, step: 500 };   // speed: units per ms
+const FRONT_BIRD = { scale: 0.42, speed: 0.07 };
+// When the view slides along the bus, the birds slide with it, the far ones
+// less than the near ones: 1 moves exactly like the bus.
+const BIRD_DEPTH = { sky: 0.6, window: 0.85, front: 1 };
+// Drawn at half the size of Sarah's 6307-wide canvas: 1.24 times the bus canvas.
+const birdPic = DreamAssets.picture(A + "yellow-bird.png", 6307 / 2544 / 2);
+let birds = [], nextFlock = 3000;
+
+const screenLeft = () => -viewLeft / k;               // the screen edges, in view units
+const screenRight = () => (width - viewLeft) / k;
+
+function moveBirds(now) {
+  const top = -viewTop / k + 15;
+  if (now > nextFlock) {
+    const r = random();
+    const kind = r < 0.5 ? "sky" : r < 0.75 ? "window" : "front";
+    const front = kind === "front";
+    // Sky: between the top of the screen and the roof. Window and front: across the windows.
+    const y = kind === "sky" ? random(Math.max(top, -200), 45) : random(130, 300);
+    for (let n = 0, many = 1 + Math.floor(random(3)); n < many; n++) {
+      birds.push({ kind, start: now + n * random(250, 600), x0: screenRight() + 80 + n * 40 + viewX.at(now) * BIRD_DEPTH[kind],
+        y: kind === "sky" ? Math.min(50, y + random(-20, 20)) : y + random(-25, 25),
+        phase: random(1000), speed: (front ? FRONT_BIRD.speed : BIRD.speed) * random(0.85, 1.15) });
+    }
+    nextFlock = now + random(9000, 22000);
+  }
+  birds = birds.filter(b => b.x0 - (now - b.start) * b.speed - viewX.at(now) * BIRD_DEPTH[b.kind] > screenLeft() - 80);
+}
+
+// One kind of bird ("sky", "window" or "front"), in view units moved by (ox, oy).
+function drawBirds(ctx, now, kind, ox = 0, oy = 0) {
+  if (!birdPic.frames.length) return;
+  const birdImg = DreamAssets.frame(birdPic, now);
+  const { w, h } = BIRD;
+  for (const b of birds) {
+    if (b.kind !== kind || now < b.start) continue;
+    const sc = kind === "front" ? FRONT_BIRD.scale : BIRD.scale;
+    const t = now - b.start + b.phase;
+    const f = Math.floor(t / (1000 / BIRD.fps)) % BIRD.frames;
+    // They move in jumps, like the clouds: BIRD.step ms between two jumps.
+    const jumped = Math.floor((now - b.start) / BIRD.step) * BIRD.step;
+    const x = b.x0 - jumped * b.speed - viewX.at(now) * BIRD_DEPTH[kind] + ox;
+    const y = b.y + 6 * Math.sin((jumped + b.phase) / 400) + oy;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(-1, 1);                                  // face left, like the bus
+    ctx.drawImage(birdImg, f * w, 0, w, h, -w * sc / 2, -h * sc / 2, w * sc, h * sc);
+    ctx.restore();
+  }
+}
+
+// --- The driver ----------------------------------------------------------------------
+// Driver.png and Volant.png (the steering wheel) are drawn on a 6307 x 1462
+// canvas, the bus canvas at 2.48 times the size. They were cut down to their
+// drawings (driver-small.png, wheel-small.png); `at` is where that cut sits
+// on the big canvas. The driver sits behind the small front window.
+const BIG = W / 6307;
+const driverParts = [["driver-small.png", 502, 420], ["wheel-small.png", 494, 672]].map(([src, x, y]) =>
+  ({ pic: DreamAssets.picture(A + src, 1 / BIG), x, y }));
+function drawDriver(ctx) {
+  for (const { pic, x, y } of driverParts) {
+    if (!pic.frames.length) continue;
+    ctx.drawImage(DreamAssets.frame(pic, millis()), x * BIG, y * BIG, pic.w * BIG, pic.h * BIG);
+  }
+}
+
+// --- A cloud in front of the bus ---------------------------------------------------
+// Every 25 to 50 seconds of driving, one cloud drifts past in front of the
+// bus, at the height of the roof and the tops of the windows, in jumps like
+// the others (and standing still at the stops, like them).
+const FRONT_CLOUD = { speed: 0.035, step: 500, every: [25000, 50000] };   // units per ms of driving
+let frontCloud = null, nextFrontCloud = 12000;
+
+function drawFrontCloud(ctx) {
+  if (!frontCloud && drive > nextFrontCloud) {
+    frontCloud = { c: 1 + Math.floor(random(4)), from: drive, y: random(40, 120), scale: random(0.7, 1) };
+  }
+  if (!frontCloud) return;
+  const s = sprites["cloud" + frontCloud.c];
+  const jumped = Math.floor((drive - frontCloud.from) / FRONT_CLOUD.step) * FRONT_CLOUD.step;
+  const half = s.w * frontCloud.scale / 2;
+  const x = screenLeft() - half + jumped * FRONT_CLOUD.speed;
+  if (x - half > screenRight()) {
+    frontCloud = null;
+    nextFrontCloud = drive + random(...FRONT_CLOUD.every);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x, frontCloud.y);
+  ctx.scale(frontCloud.scale, frontCloud.scale);
+  ctx.translate(-(s.x + s.w / 2), -(s.y + s.h / 2));
+  paint(ctx, s);
+  ctx.restore();
+}
+
 let skyClouds, windowClouds;
 function drawCloudStrip(ctx, layout) {
   for (const l of layout) {
@@ -338,7 +461,7 @@ function setup() {
   skyClouds = scatter({ dy: [-35, 25], scale: [0.7, 1.15] });
   windowClouds = scatter({ dy: [-10, 140], scale: [0.8, 1.2] });   // seen through the windows
   shadowImg = makeShadow();
-  Promise.all([document.fonts.load("20px Gaegu"), document.fonts.load("bold 20px Gaegu")]).finally(loadAll);
+  Promise.all([document.fonts.load("20px Gaegu"), document.fonts.load("bold 20px Gaegu"), DreamAssets.ready]).finally(loadAll);
 }
 
 function start() {
@@ -392,8 +515,18 @@ function draw() {
 
   drawRoad();
   drawSky();
+  moveBirds(now);
+  push();
+  toView();
+  drawBirds(drawingContext, now, "sky");
+  pop();
   drawShadow(now);
   drawBus(now);
+  push();
+  toView();
+  drawFrontCloud(drawingContext);
+  drawBirds(drawingContext, now, "front");
+  pop();
   drawRoute(t);
   drawButtons(now);
 }
@@ -502,6 +635,7 @@ function drawBus(now) {
     drawCloudStrip(ctx, windowClouds);
     ctx.restore();
   }
+  drawBirds(ctx, now, "window", viewX.at(now), -BUS_TOP);   // outside, seen through the glass
   ctx.restore();
   paint(ctx, sprites.interior);
   const { back, standing, front } = riders(now);
@@ -525,6 +659,14 @@ function drawBus(now) {
 
   push();
   toBus(window, now);
+  // The driver isn't frosted over like the other windows: always in sight,
+  // behind a light blue tint of glass.
+  drawDriver(ctx);
+  noStroke();
+  fill(85, 128, 251, 50);
+  beginShape();
+  FRONT_GLASS.forEach(([px, py]) => vertex(px, py));
+  endShape(CLOSE);
   paint(ctx, sprites.coque);
   pop();
 }
@@ -592,7 +734,7 @@ function drawFrost(now, a, b) {
 
   g.push();
   toBus(g, now);
-  // Glass: Window.gif, half see-through, cut at the pillar behind the small
+  // Glass: Window, half see-through, cut at the pillar behind the small
   // front window; the front window gets a flat patch of the same blue.
   ctx.save();
   ctx.globalAlpha = 0.5;
