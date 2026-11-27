@@ -778,8 +778,8 @@ function drawStop(now, t) {
     paint(ctx, s, BENCH[j] - s.x);
     people.push({ r, x: BENCH[j] + s.w / 2, y: s.y });
   });
-  // Strangers at the stop: no names yet, and yours is only a question mark.
-  people.forEach(p => { p.near = p.r === me; p.label = "?"; });
+  // Strangers at the stop: no names yet, everyone is only a question mark.
+  people.forEach(p => { p.near = true; p.label = "?"; });
   drawNames(ctx, now, people, 34);
   pop();
 
