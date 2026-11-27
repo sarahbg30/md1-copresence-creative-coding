@@ -59,8 +59,8 @@ const clock = () => (performance.now() - t0) * speed;
 // 6, 10 and 22 one after the other (real stops, from the 2025 timetables),
 // then starts again, on the same clock for everyone (the time of day,
 // counted from 1970). When you arrive you wait for the next stop it calls at
-// (at least CATCH_BY away, so your card has time to come out, and with your
-// three stops on the same line), get on there and ride three stops. Stops
+// (at least CATCH_BY away, so your card has time to come out), get on there
+// and ride three stops. At the end of a line the bus carries on as the next one. Stops
 // are numbered from 1970 too, so everyone agrees on them (boardStop). The
 // clock is negative while you wait.
 const LIVE = speed === 1;
@@ -79,8 +79,8 @@ const LINES = {
        "Stade de Genève", "Tours", "Rondeau"],
 };
 const LINE_STOPS = Object.entries(LINES).flatMap(([line, stops]) => stops.map(name => ({ line, name })));
-// From each stop to the next: 45 s to 110 s, the same for everyone.
-const LINE_LEGS = LINE_STOPS.map((_, i) => 45000 + ((i * 7919) % 14) * 5000);
+// From each stop to the next: 30 s to 60 s, the same for everyone.
+const LINE_LEGS = LINE_STOPS.map((_, i) => 30000 + ((i * 7919) % 7) * 5000);
 const LINE_AT = LINE_LEGS.reduce((at, leg) => [...at, at.at(-1) + leg], [0]);   // LINE_AT[i]: stop i, from the start of a round
 const LINE_LOOP = LINE_AT.pop();
 const CATCH_BY = 12000;
@@ -91,7 +91,7 @@ let busLine = null;                      // the line you ride: "6", "10" or "22"
 function joinLoop() {
   const now = Date.now();
   let n = Math.floor(now / LINE_LOOP) * LINE_STOPS.length;
-  while (routeStopAt(n) - now < CATCH_BY || routeStop(n).line !== routeStop(n + 3).line) n++;
+  while (routeStopAt(n) - now < CATCH_BY) n++;
   boardStop = n;
   busLine = routeStop(n).line;
   ride.stops = [0, 1, 2, 3].map(i => routeStop(n + i).name);
