@@ -48,7 +48,7 @@ const DreamAssets = (() => {
   }
 
   // reduceColors() from the tool: the nearest of the palette, crisp edges.
-  function reduce(d, pal) {
+  function reduce(d, pal, soft) {
     const lut = new Uint8Array(32768);
     for (let k = 0; k < 32768; k++) {
       const r = (k >> 10) * 8 + 4, g = (k >> 5 & 31) * 8 + 4, b = (k & 31) * 8 + 4;
@@ -63,7 +63,7 @@ const DreamAssets = (() => {
     for (let i = 0; i < d.length; i += 4) {
       const c = pal[lut[(d[i] >> 3) << 10 | (d[i + 1] >> 3) << 5 | d[i + 2] >> 3]];
       d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
-      d[i + 3] = d[i + 3] >= 128 ? 255 : 0;
+      if (!soft) d[i + 3] = d[i + 3] >= 128 ? 255 : 0;
     }
   }
   function palette(d) {
@@ -78,7 +78,8 @@ const DreamAssets = (() => {
   // One drawing (ImageData, already cut down) in, FRAMES filtered ImageData out.
   // `scale`: how many of its pixels make one pixel of the 2544 x 590 canvas
   // (the driver and the bird are drawn bigger), so the glow spreads as far.
-  function apply(src, scale = 1) {
+  // `soft`: keep see-through edges as they are (glowing text) instead of crisp.
+  function apply(src, scale = 1, soft = false) {
     const w = src.width, h = src.height;
     const c = document.createElement("canvas");
     c.width = w; c.height = h;
@@ -106,7 +107,7 @@ const DreamAssets = (() => {
         const n = (rnd() - .5) * grain;
         d[i] += n; d[i + 1] += n; d[i + 2] += n;
       }
-      if (quantize) { pal = pal || palette(d); reduce(d, pal); }
+      if (quantize) { pal = pal || palette(d); reduce(d, pal, soft); }
       out.push(new ImageData(d, w, h));
     }
     return out;

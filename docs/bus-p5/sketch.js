@@ -54,6 +54,20 @@ const speed = Number(new URLSearchParams(location.search).get("speed")) || 1;
 let t0 = 0;
 const clock = () => (performance.now() - t0) * speed;
 
+// ?font=Special+Elite tries another Google font for all the text (Syne Mono,
+// a worn typewriter face, by default; it's loaded in index.html).
+const FONT = new URLSearchParams(location.search).get("font") || "Syne Mono";
+if (FONT !== "Syne Mono") {
+  // Plain, and with a bold too (some fonts have no bold: that one just fails).
+  const fam = encodeURIComponent(FONT).replace(/%20/g, "+");
+  for (const w of ["", ":wght@400;700"]) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?family=${fam}${w}&display=swap`;
+    document.head.appendChild(link);
+  }
+}
+
 const ride = R.createRide({ now: 0 });
 const me = R.you(ride);
 // You start at the bus stop and are on the bus after 10 s, straight cut. The rules say 2 to 3 minutes: 120000 + Math.random() * 60000.
@@ -136,6 +150,7 @@ async function bake(img, white) {
   // The filter turns one picture into a few, with moving grain.
   let crops = out, delays = frames.map(f => f.delay);
   if (DreamAssets.on && out.length === 1) {
+    await new Promise(r => setTimeout(r, 0));   // a short break, so the page can paint
     crops = DreamAssets.apply(out[0]);
     delays = crops.map(() => DreamAssets.DELAY);
   }
@@ -209,16 +224,14 @@ function centreView(now, instant) {
 }
 
 // --- The story, written on the windows ------------------------------------------
-// What people do (actions, the stops) on the window to the right of yours,
-// what happens between people (the mix lines) on the window to the left.
-// In the last window both move one window left; in the first, one right
-// (the small front window by the driver stays empty).
+// Everything (actions, the stops, what happens between people) on the window
+// to the right of yours; at the very back of the bus, on the one to its left.
 const KEEP = 9;
 const logs = { actions: [], mixes: [] };
 let fresh = null;                          // the newest line fades in
 const pane = n => {
   const left = windows[n];
-  const l = left + 45, r = (windows[n + 1] ?? left + 302) - 32 - 45;
+  const l = left + 30, r = (windows[n + 1] ?? left + 302) - 32 - 30;
   return { x: l, y: 125, w: r - l, h: 290 - 125 };
 };
 function write(line) {
@@ -240,33 +253,85 @@ function wrap(g, text, width) {
   return out;
 }
 
+// How each kind of line looks, from loudest to quietest: the stop as a
+// heading, your own lines, what others do, then who gets on and off. All in
+// the same ink; the names keep their person's colour.
+const INK_TEXT = "#1C2B1C";   // the text's ink, almost black with a little green
+const LINE_STYLE = {
+  heading: { size: 1.3, bold: true, colour: INK_TEXT },    // "The bus stops at …"
+  mine:    { size: 1.05, bold: true, colour: INK_TEXT },   // what you did
+  act:     { size: 1, bold: false, colour: INK_TEXT },     // what the others do
+  info:    { size: 0.85, bold: false, colour: INK_TEXT },  // who gets on and off, smaller
+};
+// Names in the colour of the person.
+const NAME_COLOUR = { blue: "#7fb2ff", orange: "#ff8c26", brown: "#ffbf7a" };
+function styleOf(line) {
+  if (line.mine) return LINE_STYLE.mine;
+  if (line.kind === "act") return LINE_STYLE.act;
+  if (/^The bus stops|^End of the line/.test(line.text)) return LINE_STYLE.heading;
+  return LINE_STYLE.info;
+}
+// Names come in capitals from the rules; they're shown as "Lemon". In the
+// window text each one is marked with an invisible character first, so only
+// real names get coloured (not "Plum" in "Plum Lane").
+const niceName = name => name[0] + name.slice(1).toLowerCase();
+const MARK = "\u200b";
+const riderNamed = word => ride.riders.find(r => r.name === word.replace(/[^A-Za-z]/g, "").toUpperCase());
+const niceText = text => text.replace(/\b[A-Z]{2,}\b/g, w => riderNamed(w) ? MARK + niceName(w) : w);
+function nameColour(word) {
+  if (!word.startsWith(MARK)) return null;
+  const r = riderNamed(word);
+  if (!r) return null;
+  return r === me ? MY_NAME_FILL : NAME_FILL;
+}
+
 // Lines stack from the bottom of the pane; only whole lines that fit are shown.
 function drawPane(g, box, log) {
-  const size = smallScreen() ? 0.008 * W : 0.0055 * W;
-  const lead = size * 1.15, gap = 0.0015 * W;
-  g.textFont("Gaegu");
-  g.textSize(size);
+  const base = smallScreen() ? 0.0095 * W : 0.0075 * W;
+  const gap = 0.002 * W;
+  const ctx = g.drawingContext;
+  g.textFont(FONT);
   g.textAlign(LEFT, TOP);
   g.noStroke();
   let bottom = box.y + box.h;
   for (let n = log.length - 1; n >= 0; n--) {
-    const line = log[n];
-    g.textStyle(line.mine ? BOLD : NORMAL);
-    const rows = wrap(g, line.text, box.w);
+    const line = log[n], st = styleOf(line), size = base * st.size, lead = size * 1.12;
+    g.textSize(size);
+    g.textStyle(st.bold ? BOLD : NORMAL);
+    const rows = wrap(g, niceText(line.text), box.w);
+    const extra = st === LINE_STYLE.heading ? gap * 2 : 0;   // room above a heading
     const top = bottom - rows.length * lead;
     if (top < box.y && n < log.length - 1) break;
     const fade = line === fresh ? 1 - Math.pow(1 - Math.min(1, (millis() - line.at) / 1200), 2) : 1;
-    g.fill(255, 255 * fade);
-    rows.forEach((row, k) => g.text(row, box.x, top + k * lead));
-    bottom = top - gap;
+    const space = g.textWidth(" ");
+    rows.forEach((row, k) => {
+      let x = box.x;
+      for (const word of row.split(" ")) {
+        // Names pink in a black outline, like over people's heads.
+        const nameFill = nameColour(word), isName = nameFill !== null;
+        const c = color(isName ? nameFill : st.colour);
+        c.setAlpha(255 * fade);
+        if (isName) {
+          const o = color(NAME_OUTLINE);
+          o.setAlpha(255 * fade);
+          g.stroke(o);
+          g.strokeWeight(size * 0.16);
+          g.strokeJoin(ROUND);
+        }
+        g.fill(c);
+        g.text(word, x, top + k * lead);
+        g.noStroke();
+        x += g.textWidth(word) + space;
+      }
+    });
+    bottom = top - gap - extra;
   }
 }
 
 function drawLogs(g) {
   const i = shownWindow, last = windows.length - 1;
-  const [left, right] = i === last ? [i - 2, i - 1] : i === 1 ? [i + 1, i + 2] : [i - 1, i + 1];
-  drawPane(g, pane(right), logs.actions);
-  drawPane(g, pane(left), logs.mixes);
+  const all = [...logs.actions, ...logs.mixes].sort((a, b) => a.at - b.at).slice(-KEEP);
+  drawPane(g, pane(i === last ? i - 1 : i + 1), all);
 }
 
 // --- Clouds, scattered at random -------------------------------------------------
@@ -475,10 +540,21 @@ function setup() {
   skyClouds = scatter({ dy: [-35, 25], scale: [0.7, 1.15] });
   windowClouds = scatter({ dy: [-10, 140], scale: [0.8, 1.2] });   // seen through the windows
   shadowImg = makeShadow();
-  Promise.all([document.fonts.load("20px Gaegu"), document.fonts.load("bold 20px Gaegu"), DreamAssets.ready]).finally(loadAll);
+  // Wait until the loading bird is on screen and flapping before the heavy
+  // work starts: an animation that never got shown once can't start later.
+  const birdPng = new Image();
+  birdPng.src = A + "yellow-bird.png";
+  const birdShown = birdPng.decode().catch(() => {})
+    .then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300)))));
+  Promise.all([document.fonts.load(`20px "${FONT}"`), document.fonts.load(`bold 20px "${FONT}"`), DreamAssets.ready, birdShown]).finally(loadAll);
 }
 
+// The bird flies for at least this long, even when everything loads fast.
+const MIN_LOADING = 2000;
 function start() {
+  const left = MIN_LOADING - millis();
+  if (left > 0) { setTimeout(start, left); return; }
+  document.getElementById("loading-bird")?.remove();
   t0 = performance.now();
   lastMillis = millis();
   centreView(0, true);
@@ -615,10 +691,9 @@ function drawStop(now, t) {
   }
   paint(ctx, sprites.StopGround);
   paint(ctx, sprites.StopShelter);
-  benchRiders().forEach((r, j) => {
-    const s = sprites[FILE[r.colour] + "Stop"];
-    paint(ctx, s, BENCH[j] - s.x);
-  });
+  // Everyone at the stop, left to right, with where their head is, so the ones
+  // next to you can show their names.
+  const people = [];
   const bench = benchRiders();
   ride.queue.map(id => ride.riders[id]).filter(r => !bench.includes(r)).slice(0, STAND.length).forEach((r, j) => {
     const s = sprites[FILE[r.colour] + "Standing"];
@@ -627,7 +702,16 @@ function drawStop(now, t) {
     ctx.scale(STAND_SCALE, STAND_SCALE);
     ctx.drawImage(frameOf(s, now), -s.w / 2, -s.h, s.w, s.h);
     ctx.restore();
+    people.push({ r, x: STAND[j].x, y: STAND[j].feet - s.h * STAND_SCALE });
   });
+  bench.forEach((r, j) => {
+    const s = sprites[FILE[r.colour] + "Stop"];
+    paint(ctx, s, BENCH[j] - s.x);
+    people.push({ r, x: BENCH[j] + s.w / 2, y: s.y });
+  });
+  // Strangers at the stop: no names yet, and yours is only a question mark.
+  people.forEach(p => { p.near = p.r === me; p.label = "?"; });
+  drawNames(ctx, now, people, 34);
   pop();
 
   push();
@@ -637,20 +721,24 @@ function drawStop(now, t) {
   pop();
 }
 
+// While the drawings load, the yellow bird flaps in index.html (#loading-bird),
+// where it keeps moving even while the filter keeps the page busy. Here only
+// a note if something couldn't load.
 function drawLoading() {
+  if (!failed) return;
+  document.getElementById("loading-bird")?.remove();
   fill(255);
   noStroke();
-  textFont("Gaegu");
-  textStyle(BOLD);
+  textFont(FONT);
   textAlign(CENTER, CENTER);
   textSize(Math.min(28, width / 20));
-  text(failed ? `couldn't load ${failed}` : `the bus is coming… ${loaded} / ${TO_LOAD.length}`, width / 2, height / 2);
+  text(`couldn't load ${failed}`, width / 2, height / 2);
 }
 
 function drawTurn() {
   fill(255);
   noStroke();
-  textFont("Gaegu");
+  textFont(FONT);
   textStyle(BOLD);
   textAlign(CENTER, CENTER);
   textSize(28);
@@ -745,6 +833,9 @@ function drawBus(now) {
   ctx.restore();
   paint(ctx, sprites.interior);
   const { back, standing, front } = riders(now);
+  // Names of the people within a row of you, over their heads (drawn last).
+  const near = [...back, ...standing, ...front].map(([s, dx, dy, r]) => ({ r, x: s.x + dx + s.w / 2, y: s.y + dy,
+    near: me.where === "bus" && Math.abs(r.row - me.row) <= NEAR_ROWS }));
   back.forEach(([s, dx, dy]) => paint(ctx, s, dx, dy));
   standing.forEach(([s, dx, dy]) => paint(ctx, s, dx, dy));
   if (me.where === "bus" && me.lane === R.LANE.standing) {
@@ -752,6 +843,8 @@ function drawBus(now) {
     const since = now - meBobAt;
     const bob = since < 600 ? -0.012 * H * Math.sin(Math.PI * (since % 300) / 300) : 0;
     paint(ctx, sprites[FILE[me.colour] + "Standing"], meX.at(now), bob);
+    const s = sprites[FILE[me.colour] + "Standing"];
+    near.push({ r: me, x: s.x + meX.at(now) + s.w / 2, y: s.y + bob, near: true });
   }
   paint(ctx, sprites.seats);
   front.forEach(([s, dx, dy]) => paint(ctx, s, dx, dy));
@@ -774,7 +867,89 @@ function drawBus(now) {
   FRONT_GLASS.forEach(([px, py]) => vertex(px, py));
   endShape(CLOSE);
   paint(ctx, sprites.coque);
+  drawNames(ctx, now, near, 30);
   pop();
+}
+
+// Names above people's heads when you're close to them: they fade in as you
+// come near and out as you walk away. `people`: [{ r, x, y, near }], x the
+// middle and y the top of their head, in the current units; `size` in those units.
+const NAME_FILL = "#ff86d6", NAME_OUTLINE = "#000000";   // names over heads
+const MY_NAME_FILL = "#4f8dff";   // your own name, blue
+const NEAR_ROWS = 0;   // 0: only the people in your own row
+const nameFade = new Map();   // rider id -> Tween of how visible (0 to 1)
+function drawNames(ctx, now, people, size) {
+  for (const p of people) {
+    if (!nameFade.has(p.r.id)) nameFade.set(p.r.id, new Tween(350, easeInOut, 0));
+    nameFade.get(p.r.id).set(p.near ? 1 : 0, now);
+  }
+  textFont(FONT);
+  textStyle(BOLD);
+  textSize(size);
+  textAlign(CENTER, BOTTOM);
+  noStroke();
+  // Lowest heads first; a label that would cover one already placed goes up.
+  const placed = [];
+  for (const p of [...people].sort((a, b) => b.y - a.y)) {
+    const a = nameFade.get(p.r.id).at(now);
+    if (a <= 0.01) continue;
+    const label = p.label || p.r.name;
+    const w = textWidth(label) + size * 0.7, h = size * 1.05;
+    let y = p.y - 10;
+    while (placed.some(q => Math.abs(q.x - p.x) < (q.w + w) / 2 + 4 && Math.abs(q.y - y) < h + 4)) y -= 2;
+    placed.push({ x: p.x, y, w });
+    y -= 8 * (1 - a);   // rises a little as it fades in
+    const pic = namePicture(label, size, p.r === me ? MY_NAME_FILL : NAME_FILL);
+    const f = DreamAssets.frame(pic, now), pw = f.width / NAME_RES, ph = f.height / NAME_RES;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.drawImage(f, p.x - pw / 2, y + pic.pad / NAME_RES - ph, pw, ph);
+    ctx.restore();
+  }
+}
+
+// Each name drawn once as a picture, pink in a black outline, and put through the
+// dreamcore filter like the drawings: grade, glow, grain, the few colours,
+// 3 grain frames.
+// NAME_RES pixels per unit, so it stays sharp.
+const NAME_RES = 1.5;
+const namePictures = new Map();
+function namePicture(name, size, fill = NAME_FILL) {
+  name = niceName(name);
+  const key = name + "/" + size + "/" + fill;
+  if (namePictures.has(key)) return namePictures.get(key);
+  const px = size * NAME_RES, pad = Math.ceil(px * 0.3);
+  const c = document.createElement("canvas");
+  let g = c.getContext("2d");
+  const font = `bold ${px}px "${FONT}"`;
+  g.font = font;
+  c.width = Math.ceil(g.measureText(name).width + 2 * pad);
+  c.height = Math.ceil(px * 1.1 + 2 * pad);
+  g = c.getContext("2d", { willReadFrequently: true });
+  g.font = font;
+  g.textAlign = "center";
+  g.textBaseline = "bottom";
+  // Pink letters with a black outline.
+  const [x, y] = [c.width / 2, c.height - pad];
+  g.lineJoin = "round";
+  g.lineWidth = px * 0.18;
+  g.strokeStyle = NAME_OUTLINE;
+  g.strokeText(name, x, y);
+  g.fillStyle = fill;
+  g.fillText(name, x, y);
+  let frames = [c];
+  if (DreamAssets.on) {
+    // soft: keep the halo's see-through edge instead of cutting it crisp.
+    frames = DreamAssets.apply(g.getImageData(0, 0, c.width, c.height), NAME_RES, true).map(d => {
+      const f = document.createElement("canvas");
+      f.width = c.width; f.height = c.height;
+      f.getContext("2d").putImageData(d, 0, 0);
+      return f;
+    });
+  }
+  const pic = { frames, pad };
+  if (document.fonts.check(font)) namePictures.set(key, pic);   // try again once the font is in
+  return pic;
 }
 
 // Riders on the bus, as [drawing, dx, dy], by layer.
@@ -792,13 +967,13 @@ function riders(now) {
       tw.set(x, now);
       const walking = r.target !== null && r.row !== r.target.row;
       const bob = walking ? -0.012 * H * Math.sin(Math.PI * (now % 350) / 350) : 0;
-      standing.push([sprites[FILE[r.colour] + "Standing"], tw.at(now), bob]);
+      standing.push([sprites[FILE[r.colour] + "Standing"], tw.at(now), bob, r]);
       continue;
     }
     const isBack = r.lane === R.LANE.window;
     const s = sprites[FILE[r.colour] + (isBack ? "Sitting" : "SittingFront")];
     const dx = seatX[r.lane][r.row] - drawnOn[r.colour][r.lane];
-    (isBack ? back : front).push([s, dx, isBack ? 0 : dropFor(r.colour, r.row)]);
+    (isBack ? back : front).push([s, dx, isBack ? 0 : dropFor(r.colour, r.row), r]);
   }
   for (const id of walkers.keys()) if (!here.has(id)) walkers.delete(id);
   return { back, standing, front };
@@ -923,7 +1098,7 @@ function drawButtons(now) {
   const label = ride.over ? "ride again" : R.YOUR_ACTIONS[me.action];
   const enabled = ride.over || me.where === "bus";
   const size = (touch ? 3 : 2.4) * cqw;
-  textFont("Gaegu");
+  textFont(FONT);
   textStyle(BOLD);
   textSize(size);
   const w = textWidth(label) + 4.8 * cqw, h = size + 1 * cqw;
