@@ -49,10 +49,55 @@ const STOP_RINGS = [[130, 140, 64, 60, -8], [430, 141, 60, 64, 6], [1162, 139, 6
 const INK = "#676b6e", PAPER = "#f6ecf0", BLUE = "#4f6ff0", GREY_BLUE = "#8e9bb8";
 
 // --- The game ----------------------------------------------------------------
-// ?speed=40 makes the ride go 40 times faster, for testing.
+// ?speed=40 makes the ride go 40 times faster, for testing (on your own:
+// the shared clock below is only used at normal speed).
 const speed = Number(new URLSearchParams(location.search).get("speed")) || 1;
 let t0 = 0;
 const clock = () => (performance.now() - t0) * speed;
+
+// One bus for everyone. It never stops running: it drives Geneva's tpg lines
+// 6, 10 and 22 one after the other (real stops, from the 2025 timetables),
+// then starts again, on the same clock for everyone (the time of day,
+// counted from 1970). When you arrive you wait for the next stop it calls at
+// (at least CATCH_BY away, so your card has time to come out, and with your
+// three stops on the same line), get on there and ride three stops. Stops
+// are numbered from 1970 too, so everyone agrees on them (boardStop). The
+// clock is negative while you wait.
+const LIVE = speed === 1;
+const LINES = {
+  6: ["Vernier-Village", "Vernier-Marché", "Vernier-École", "Champ-Claude", "Gare de Vernier", "De-Sauvage",
+      "Bois-des-Frères", "Châtelaine", "Les Ouches", "Guye", "Charmilles", "Dôle", "Prairie", "Gare Cornavin",
+      "Chantepoulet", "Mont-Blanc", "Métropole", "Rive", "Place des Eaux-Vives", "Rue du Lac", "Vollandes",
+      "Merle-d'Aubigné", "Parc Plage Eaux-Vives", "Genève-Plage"],
+  10: ["Rive", "Place des Eaux-Vives", "Métropole", "Molard", "Jonction", "Cirque", "Théâtre", "Bel-Air",
+       "Coutance", "Gare Cornavin", "Prairie", "Dôle", "Charmilles", "Guye", "Franchises", "Bouchet",
+       "Balexert-Pailly", "Avanchets-Casaï", "De-Joinville", "Aéroport Tour-Contrôle", "Aéroport WTC", "Aéroport Terminal"],
+  22: ["Jardin Botanique", "Gare de Sécheron", "Nations", "Appia", "OMS-BIT", "Morillons", "Le Pommier", "Sonnex",
+       "Maison des Parlements", "Tourelle", "Petit-Saconnex", "Moillebeau", "Trembley", "Mervelet",
+       "Collège Rousseau", "Bouchet", "Franchises", "Les Ouches", "Châtelaine", "Avenue de l'Ain", "Chemin du Bac",
+       "Bossons", "Les Esserts", "Pré-Monnard", "Lancy Piscine", "Palettes", "Pontets", "Gare de Lancy-Bachet",
+       "Stade de Genève", "Tours", "Rondeau"],
+};
+const LINE_STOPS = Object.entries(LINES).flatMap(([line, stops]) => stops.map(name => ({ line, name })));
+// From each stop to the next: 45 s to 110 s, the same for everyone.
+const LINE_LEGS = LINE_STOPS.map((_, i) => 45000 + ((i * 7919) % 14) * 5000);
+const LINE_AT = LINE_LEGS.reduce((at, leg) => [...at, at.at(-1) + leg], [0]);   // LINE_AT[i]: stop i, from the start of a round
+const LINE_LOOP = LINE_AT.pop();
+const CATCH_BY = 12000;
+const routeStop = n => LINE_STOPS[n % LINE_STOPS.length];
+const routeStopAt = n => Math.floor(n / LINE_STOPS.length) * LINE_LOOP + LINE_AT[n % LINE_STOPS.length];   // Date.now() time of stop n
+let boardStop = 0;                       // the stop where you get on, numbered from 1970
+let busLine = null;                      // the line you ride: "6", "10" or "22"
+function joinLoop() {
+  const now = Date.now();
+  let n = Math.floor(now / LINE_LOOP) * LINE_STOPS.length;
+  while (routeStopAt(n) - now < CATCH_BY || routeStop(n).line !== routeStop(n + 3).line) n++;
+  boardStop = n;
+  busLine = routeStop(n).line;
+  ride.stops = [0, 1, 2, 3].map(i => routeStop(n + i).name);
+  ride.legs = [0, 1, 2].map(i => LINE_LEGS[(n + i) % LINE_STOPS.length]);
+  t0 = performance.now() - (now - (routeStopAt(n) - R.FIRST_STOP_AT));
+}
 
 // ?font=Special+Elite tries another Google font for all the text (Gaegu,
 // a round handwritten face, by default; it's loaded in index.html).
@@ -68,13 +113,12 @@ if (FONT !== "Gaegu") {
   }
 }
 
-const ride = R.createRide({ now: 0 });
+// Only real people ride: no fake riders. The others are added from live.js.
+const ride = R.createRide({ now: 0, fakes: false });
 const me = R.you(ride);
 // You start at the bus stop: 10 s of the stop, then 10 s with your card out, then a straight cut to the bus. The rules say 2 to 3 minutes: 120000 + Math.random() * 60000.
 // rules.js has it after 4 s, for the other prototypes.
 ride.nextStopAt = 20000;
-// One more person waits at the start; the bench holds three, so they stand.
-for (let i = 0; i < 1; i++) ride.queue.push(R.newRider(ride, true).id);
 
 // --- Loading the drawings ------------------------------------------------------
 // Every drawing fills a whole 2544 x 590 canvas, which is a lot of memory
@@ -495,7 +539,7 @@ const STOP_PAUSE = 4000;
 let drive = 0, lastMillis = 0, stoppedUntil = 0;
 // The clouds follow `sky`: like `drive`, but barely moving while you wait at the stop.
 let sky = 0;
-const SKY_AT_STOP = 0.1;
+const SKY_AT_STOP = 0.3;
 const atStop = () => me.where === "queue" && !ride.over;
 
 // Keyframes of the bounce, 1.7 s: [time, lift (units), tilt (deg)]; and the
@@ -560,10 +604,12 @@ function start() {
   cardPrintPicture();   // ready before the card comes out
   routePicture(0); markerPicture();   // and the route map, before the bus
   t0 = performance.now();
+  if (LIVE) joinLoop();
   lastMillis = millis();
   centreView(0, true);
   meX.set(standX(me.row) - drawnOn[me.colour].stand, 0, true);
-  write({ text: `You are ${me.name}, waiting at ${R.STOPS[0]}. Your one thing to do: ${R.YOUR_ACTIONS[me.action]}.`, row: null, mine: true });
+  write({ text: `You are ${me.name}, waiting at ${ride.stops[0]}${busLine ? ` for the ${busLine}` : ""}. Your one thing to do: ${R.YOUR_ACTIONS[me.action]}.`, row: null, mine: true });
+  write({ text: `You ride three stops and get off at ${ride.stops.at(-1)}.`, row: null, mine: true });
   ready = true;
 }
 
@@ -591,19 +637,20 @@ function makeShadow() {
 
 function draw() {
   const now = millis();
-  background("#7fa8cf");
+  background("#87a4ad");
   if (!ready) { drawLoading(); return; }
   if (portrait()) { drawTurn(); return; }
 
   // The game moves on.
   const t = clock();
+  syncPeople();
   for (const line of R.tick(ride, t)) {
     centreView(now);
     write(line);
     if (line.text.startsWith("The bus stops")) { stoppedUntil = t + STOP_PAUSE * speed; }
   }
   centreView(now);
-  const stopped = ride.over || t < stoppedUntil;
+  const stopped = ride.over || (!atStop() && t < stoppedUntil);   // at the bus stop the sky always drifts
   if (!stopped) drive += now - lastMillis;
   if (!stopped) sky += (now - lastMillis) * (atStop() ? SKY_AT_STOP : 1);
   lastMillis = now;
@@ -656,7 +703,8 @@ function toStop(g = window) {
 }
 
 function benchRiders() {
-  const line = ride.queue.map(id => ride.riders[id]);
+  // Only the people waiting at the same stop as you.
+  const line = ride.queue.map(id => ride.riders[id]).filter(r => (r.boardAt ?? 0) === 0);
   const bench = line.slice(0, 3);
   if (!bench.includes(me)) bench[bench.length - 1] = me;
   return bench;
@@ -1285,7 +1333,7 @@ const cqw = VIEW_W / 100;
 
 function drawButtons(now) {
   const touch = touchScreen();
-  const label = ride.over ? "ride again" : R.YOUR_ACTIONS[me.action];
+  const label = ride.over ? "next bus" : R.YOUR_ACTIONS[me.action];
   const enabled = ride.over || me.where === "bus";
   const size = (touch ? 3 : 2.4) * cqw;
   textFont(FONT);
@@ -1339,7 +1387,9 @@ function pressAt(px, py) {
 
 function pressAction() {
   if (ride.over) { location.reload(); return; }
-  R.act(ride, clock()).forEach(write);
+  const lines = R.act(ride, clock());
+  lines.forEach(write);
+  if (lines.length) window.Live?.send({ lines: lines.map(l => ({ text: l.text, kind: l.kind, row: l.row })) });
 }
 
 // Walk one row: arrow keys on a computer, the ‹ › buttons on a phone.
@@ -1366,3 +1416,71 @@ function mousePressed() {
   if (millis() - lastTouch < 800) return;
   pressAt(mouseX, mouseY);
 }
+
+// --- The other people, live ----------------------------------------------------
+// live.js (playhtml) shares where each person is. Here: every frame, your own
+// place goes out if it changed, and everyone on the same ride is put on your
+// bus as a rider (brown or orange; only you are blue). When someone presses
+// their action, their lines arrive in your window.
+const others = new Map();                // their playhtml id -> their rider here
+let sentState = "";
+const colourOf = pid => R.COLOURS[[...pid].reduce((h, c) => h + c.charCodeAt(0), 0) % R.COLOURS.length];
+
+// Your place goes out when it changes: from draw(), and once a second, so it
+// still goes out while your tab is in the background (draw() pauses then).
+function sendMe() {
+  if (!window.Live || !LIVE || !ready) return;
+  const state = { name: me.name, action: me.action, boardAt: boardStop, where: me.where, row: me.row, lane: me.lane };
+  const json = JSON.stringify(state);
+  if (json !== sentState) { sentState = json; window.Live.setMe(state); }
+}
+// In a background tab the ride also moves on here (you still get on the bus).
+setInterval(() => {
+  if (!ready) return;
+  if (document.hidden) { syncPeople(); R.tick(ride, clock()).forEach(write); }
+  sendMe();
+}, 1000);
+
+function syncPeople() {
+  const live = window.Live;
+  if (!live || !LIVE) return;
+  sendMe();
+
+  const here = new Set();
+  for (const { pid, state: st } of live.people) {
+    if (!st || st.boardAt == null) continue;
+    here.add(pid);
+    let r = others.get(pid);
+    if (!r) {
+      r = R.newRider(ride, true);
+      r.fake = false;                     // the rules leave them alone: they move themselves
+      r.colour = colourOf(pid);
+      others.set(pid, r);
+    }
+    r.name = st.name;
+    r.action = st.action;
+    r.boardAt = st.boardAt - boardStop;   // counted from your stop, like the rules count them
+    if (st.where === "queue" && r.where !== "bus") {
+      r.where = "queue";
+      if (!ride.queue.includes(r.id)) ride.queue.push(r.id);
+    } else if (st.where !== "queue") {
+      ride.queue = ride.queue.filter(id => id !== r.id);
+      r.where = st.where;
+      r.row = st.row;
+      r.lane = st.lane;
+      r.target = null;
+    }
+  }
+  for (const [pid, r] of others) {
+    if (here.has(pid)) continue;          // left the page: off the bus
+    r.where = "gone";
+    ride.queue = ride.queue.filter(id => id !== r.id);
+    others.delete(pid);
+  }
+}
+
+// Someone else pressed their action: their lines, in your window.
+window.onLiveAct = ({ pid, loop, lines }) => {
+  if (!ready || !others.has(pid)) return;
+  for (const l of lines) write({ t: clock(), text: l.text, row: l.row, kind: l.kind, mine: l.kind === "mix" && l.text.includes(me.name) });
+};

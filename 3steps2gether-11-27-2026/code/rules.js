@@ -23,7 +23,9 @@
   const ACT_MIN = 60000;             // fake riders act every 1 to 2 minutes
   const ACT_MAX = 120000;
 
-  // The four circles on the route. Legs are as long as the gaps between them.
+  // The four circles on the route map: where you get on, then three stops to
+  // where you get off. Legs are the times between them. These are the
+  // defaults; a ride can be given its own (createRide's stops and legs).
   const STOPS = ["Plum Lane", "the Market", "Old Bridge", "the End of the Line"];
   const LEGS = [45000, 110000, 105000];
   const FIRST_STOP_AT = 4000;
@@ -201,20 +203,22 @@
   const ordinal = n => n + ({ 1: "st", 2: "nd", 3: "rd" }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] ?? "th");
 
   // A new ride. Options: rng (defaults to Math.random), now, aboard (how many
-  // fake riders are already on the bus), ahead (fake riders in line before you).
-  function createRide({ rng = Math.random, now = 0, aboard, ahead } = {}) {
+  // fake riders are already on the bus), ahead (fake riders in line before you),
+  // fakes (false: no fake riders at all, only the real people added from outside).
+  function createRide({ rng = Math.random, now = 0, aboard, ahead, fakes = true, stops = STOPS, legs = LEGS } = {}) {
     const ride = {
-      rng, riders: [], usedNames: new Set(), queue: [], story: [],
+      rng, fakes, stops, legs, riders: [], usedNames: new Set(), queue: [], story: [],
       nextStop: 0, nextStopAt: now + FIRST_STOP_AT, lastMixAt: -Infinity, over: false, you: 0, readyFor: -1, mixed: new Set(),
     };
     ride.you = newRider(ride, false).id;
 
+    if (!fakes) { ride.queue = [ride.you]; return ride; }
     aboard ??= 5 + Math.floor(rng() * 6);            // 5 to 10 riders already on board
     for (let i = 0; i < Math.min(aboard, SEATS); i++) {
       const r = newRider(ride, true);
       r.where = "bus";
       sitSomewhere(ride, r);
-      r.leavesAt = 1 + Math.floor(rng() * (STOPS.length - 1));
+      r.leavesAt = 1 + Math.floor(rng() * (ride.stops.length - 1));
       r.nextActAt = now + between(ride, 5000, ACT_MAX);   // spread out the first ones
     }
 
@@ -287,14 +291,15 @@
 
   function arrive(ride, t) {
     const k = ride.nextStop;
-    const last = k === STOPS.length - 1;
-    say(ride, t, `The bus stops at ${STOPS[k]}.`);
+    const last = k === ride.stops.length - 1;
+    say(ride, t, `The bus stops at ${ride.stops[k]}.`);
 
     if (last) {
       for (const r of ride.riders) if (r.where === "bus") { r.where = "gone"; r.target = null; }
       ride.over = true;
       ride.nextStopAt = Infinity;
-      say(ride, t, `End of the line. Everybody gets off, ${you(ride).name} too.`);
+      say(ride, t, ride.fakes ? `End of the line. Everybody gets off, ${you(ride).name} too.`
+                              : `${you(ride).name} gets off here.`);
       return;
     }
 
@@ -302,17 +307,21 @@
     for (const r of off) { r.where = "gone"; r.target = null; }
     if (off.length) say(ride, t, `${list(off.map(r => r.name))} ${off.length > 1 ? "get" : "gets"} off.`);
 
-    for (let i = 0; i < NEW_PER_STOP; i++) ride.queue.push(newRider(ride, true).id);
+    if (ride.fakes) for (let i = 0; i < NEW_PER_STOP; i++) ride.queue.push(newRider(ride, true).id);
 
+    // Real people only: everyone in the line gets on, as long as there are seats.
+    // Someone who came late waits at the stop for a later one (boardAt).
     const room = SEATS - onBus(ride).length;
-    const boarding = ride.queue.splice(0, Math.min(MAX_BOARD, room));
+    const boarding = ride.queue.filter(id => (ride.riders[id].boardAt ?? 0) <= k)
+      .slice(0, Math.min(ride.fakes ? MAX_BOARD : SEATS, room));
+    ride.queue = ride.queue.filter(id => !boarding.includes(id));
     for (const id of boarding) {
       const r = ride.riders[id];
       r.where = "bus";
       if (r.fake) {
         r.row = DOOR;
         walkTo(ride, r, pick(ride, freeSeats(ride)), t);
-        r.leavesAt = k + 1 + Math.floor(ride.rng() * (STOPS.length - 1 - k));
+        r.leavesAt = k + 1 + Math.floor(ride.rng() * (ride.stops.length - 1 - k));
         r.nextActAt = t + between(ride, ACT_MIN, ACT_MAX);
       } else {
         r.row = 0;                 // you get on at the front and stand
@@ -323,13 +332,13 @@
     if (boarding.length) say(ride, t, `${list(boarding.map(id => ride.riders[id].name))} ${boarding.length > 1 ? "get" : "gets"} on.`);
 
     const place = ride.queue.indexOf(ride.you);
-    if (place >= 0) {
+    if (place >= 0 && (you(ride).boardAt ?? 0) <= k) {
       say(ride, t, `${room - boarding.length > 0 ? "No more room this time" : "The bus is full"}. ` +
         `${you(ride).name} keeps their place in the line, ${ordinal(place + 1)}.`);
     }
 
     ride.nextStop++;
-    ride.nextStopAt = t + LEGS[k];
+    ride.nextStopAt = t + ride.legs[k];
   }
 
   // A little before a stop, whoever gets off there stands up and walks to the door.
@@ -386,10 +395,10 @@
 
   // Where the bus is on the route: stop index plus how far along the next leg (0 to 1).
   function progress(ride, now) {
-    if (ride.over) return STOPS.length - 1;
+    if (ride.over) return ride.stops.length - 1;
     const k = ride.nextStop;
     if (k === 0) return 0;
-    const leg = LEGS[k - 1];
+    const leg = ride.legs[k - 1];
     return k - 1 + Math.min(1, Math.max(0, 1 - (ride.nextStopAt - now) / leg));
   }
 

@@ -18,11 +18,17 @@ A bus is a place where we do exactly that. We share a small space with strangers
 2. **When the bus arrives**, you get on. Your name is in blue; the other riders' names float above their heads.
 3. **Arrow keys** (or the ‹ › buttons on a phone held sideways) walk you along the bus. Stand still next to a free seat to sit down.
 4. **The button under your window** does your action. Your window tells you what the people around you are doing.
-5. The bus calls at four stops: Plum Lane, the Market, Old Bridge and the End of the Line.
+5. You ride three stops, then get off. The route map at the top shows your four stops.
 
 Add `?speed=40` to the address to make the ride go 40 times faster, for testing.
 
-For now, the other riders are simulated in your browser: there is no server, so each visitor rides their own bus.
+### Riding together
+
+The other riders are real people who have the page open at the same time as you. Everyone shares one bus, on the same clock. It never stops running: it drives the real stops of Geneva's tpg lines 6, 10 and 22, one line after the other, then starts again. When you arrive you wait for its next stop, get on, and ride three stops.
+
+While you ride, the others see where you sit or stand, your name and what you do. When your action meets theirs, both windows write the moment down. Nothing is saved: when you close the page, you are gone from the bus. This goes through [playhtml](https://playhtml.fun)'s server, which only passes it along live.
+
+The shared clock only runs at normal speed: with `?speed=40` you ride alone.
 
 ## Folders
 
@@ -33,6 +39,7 @@ For now, the other riders are simulated in your browser: there is no server, so 
     sketch.js        the game, drawn with p5.js
     rules.js         the rules: seats, stops, actions and what happens when two actions meet
     dreamcore-assets.js / dreamcore-filter.js   the dreamcore filter on the drawings
+    live.js          connects the riders to each other with playhtml
   resized-assets/    the drawings, cut to their edges
     bus-stop/        shelter, ground, people waiting
     bus-pass/        the travel licence and its birds
@@ -57,6 +64,7 @@ Then open http://localhost:8000/3steps2gether-11-27-2026/code/
 - **Drawings, concept and design:** sarahbg30
 - **[p5.js](https://p5js.org/)** 1.11.1, for drawing the game (LGPL)
 - **[Gaegu](https://fonts.google.com/specimen/Gaegu)** by JIKJI SOFT and **[Courier Prime](https://fonts.google.com/specimen/Courier+Prime)** by Alan Dague-Greene, from Google Fonts (SIL Open Font License)
+- **[playhtml](https://github.com/spencerc99/playhtml)** 2.16.0 by Spencer Chang, for sharing the bus between riders (MIT)
 - **[gifenc](https://github.com/mattdesl/gifenc)** by Matt DesLauriers, for the colour palette of the filter (MIT)
 - Code written with help from Claude Code (Anthropic)
 - Course: *Creative Coding & Future Web*, HEAD–Genève. Professor: Amaury Hamon. Assistants: Pablo Bellon, Sarah Meylan
