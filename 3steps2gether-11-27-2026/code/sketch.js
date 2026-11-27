@@ -620,7 +620,7 @@ const MIN_LOADING = 2000;
 function start() {
   const left = MIN_LOADING - millis();
   if (left > 0) { setTimeout(start, left); return; }
-  if (!window.LANG) { window.askLanguage?.(); setTimeout(start, 100); return; }   // loaded: the birds bring the languages
+  if (!window.LANG) { window.askLanguage?.({ clouds: [1, 2, 3, 4].map(n => sprites["cloud" + n]), bird: birdPic, delay: DreamAssets.DELAY }); setTimeout(start, 100); return; }   // loaded: the birds bring the languages
   ride.lang = lang();
   ride.stops = TX().stops;   // without the live bus; joinLoop() puts the real stops
   document.getElementById("loading-bird")?.remove();
