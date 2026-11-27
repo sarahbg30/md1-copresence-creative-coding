@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3steps 2gether</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #7fa8cf; }
+  /* No scrolling, zooming or text selection while tapping on a phone. */
+  body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; }
+  /* While the game loads: the yellow bird flapping and bobbing in the sky. Its 8
+     frames are stacked and shown one after another by fading them in and out
+     (opacity and transform animations keep playing while the page is busy). */
+  #loading-bird { position: fixed; left: 50%; top: 50%; z-index: 2; pointer-events: none;
+    width: calc(22vmin * 176 / 216); height: 22vmin; margin: -11vmin 0 0 calc(-11vmin * 176 / 216);
+    animation: bob 0.9s ease-in-out infinite alternate; will-change: transform; }
+  #loading-bird span { position: absolute; inset: 0; transform: scaleX(-1); opacity: 0;
+    background: url(../resized-assets/background-assets/yellow-bird.png) no-repeat; background-size: 900% 100%;   /* the strip has 9 frames; the first 8 are used */
+    animation: flap 1s linear infinite; will-change: opacity; }
+  #loading-bird span:first-child { opacity: 1; }   /* a still bird if the animation can't run */
+  @keyframes flap { 0%, 12.4% { opacity: 1; } 12.5%, 100% { opacity: 0; } }
+  @keyframes bob { from { transform: translateY(-2vmin); } to { transform: translateY(2vmin); } }
+</style>
+</head>
+<body>
+<div id="loading-bird"></div>
+<script>
+  // The 8 frames of the bird, one after another, 8 a second.
+  for (let i = 0; i < 8; i++) {
+    const f = document.createElement("span");
+    f.style.backgroundPosition = `${i / 8 * 100}% 0`;
+    f.style.animationDelay = `${i / 8 - 1}s`;   // frame i shows from i/8 s into each second
+    document.getElementById("loading-bird").appendChild(f);
+  }
+</script>
+<!-- 3steps 2gether, the p5.js bus, on its own: everything it needs is in this folder. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+<!-- Bump ?v= on every change, so phones don't keep an old copy. -->
+<script src="rules.js?v=6"></script>
+<script src="../resized-assets/positions.js?v=2"></script>
+<script src="dreamcore-assets.js?v=3"></script>
+<script src="dreamcore-filter.js?v=4"></script>
+<script src="sketch.js?v=92"></script>
+</body>
+</html>

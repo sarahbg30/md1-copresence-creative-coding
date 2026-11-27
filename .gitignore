@@ -1,2 +1,5 @@
 .DS_Store
 .claude/
+docs/
+game.test.js
+package.json
