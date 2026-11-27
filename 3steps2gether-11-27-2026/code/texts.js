@@ -6,6 +6,8 @@
 // yours: the same said to you, on your button and your pass.
 // mixes: one line for every pair of actions, {A} and {B} as in rules.js.
 // stops: the four stops when riding alone (the live bus has the tpg stops).
+// names: the riders' names (English ones are the names themselves).
+// places: the tpg stops with a word to translate (gare, aéroport…); the others stay as they are.
 // orders: the short order under your action on the pass.
 // The functions write the bus's own lines: who gets on and off, and so on.
 // Hindi is in Devanagari; Lebanese is in Arabizi, the way it's texted.
@@ -13,6 +15,9 @@
 (() => {
   const ORDER = ["sun", "rain", "read", "think", "bar", "wave", "photo", "aura", "nails"];
   const MIXES = ["sun+sun", "sun+rain", "sun+read", "sun+think", "sun+bar", "sun+wave", "sun+photo", "rain+rain", "rain+read", "rain+think", "rain+bar", "rain+wave", "rain+photo", "read+read", "read+think", "read+bar", "read+wave", "read+photo", "think+think", "think+bar", "think+wave", "think+photo", "bar+bar", "bar+wave", "bar+photo", "wave+wave", "wave+photo", "photo+photo", "sun+aura", "sun+nails", "rain+aura", "rain+nails", "read+aura", "read+nails", "think+aura", "think+nails", "bar+aura", "bar+nails", "wave+aura", "wave+nails", "photo+aura", "photo+nails", "aura+aura", "aura+nails", "nails+nails"];
+  // The riders' names (rules.js NAMES) and the tpg stops whose words get translated.
+  const NAMES = ["COOKIE", "TIGER", "FIG", "MOTH", "PLUM", "BISCUIT", "OTTER", "PEBBLE", "MANGO", "WREN", "TOFU", "BEAN", "COMET", "MOSS", "PICKLE", "SPROUT", "NOODLE", "HAZEL", "BUTTON", "CLOVER", "MUFFIN", "PEPPER", "DAISY", "FERN", "GINGER", "HONEY", "JUNIPER", "KIWI", "LEMON", "MAPLE", "NUTMEG", "OLIVE", "PEANUT", "QUINCE", "RADISH", "SAGE", "TURNIP", "WAFFLE", "YAM", "ACORN", "BAGEL", "CRUMB", "DUMPLING", "EEL", "FLUFF", "GOOSE", "HERON", "IGLOO", "JELLY", "KOALA", "LLAMA", "MITTEN", "NEWT", "ONION", "POPPY", "RAVEN", "SARDINE", "TOAST", "WALNUT", "ZEBRA"];
+  const PLACES = ["Gare Cornavin", "Gare de Vernier", "Gare de Sécheron", "Gare de Lancy-Bachet", "Aéroport Tour-Contrôle", "Aéroport WTC", "Aéroport Terminal", "Jardin Botanique", "Stade de Genève", "Place des Eaux-Vives", "Rue du Lac", "Genève-Plage", "Parc Plage Eaux-Vives", "Lancy Piscine", "Maison des Parlements", "Collège Rousseau", "Vernier-Village", "Vernier-Marché", "Vernier-École", "Avenue de l'Ain", "Chemin du Bac", "Théâtre"];
   const zip = (keys, list) => Object.fromEntries(keys.map((k, i) => [k, list[i]]));
   const TEXTS = {
   "en": {
@@ -68,6 +73,7 @@
       "{A} and {B} clip their nails in rhythm",
     ]),
     stops: ["Plum Lane", "the Market", "Old Bridge", "the End of the Line"],
+    places: zip(PLACES, ["Cornavin Station", "Vernier Station", "Sécheron Station", "Lancy-Bachet Station", "Airport Control Tower", "Airport WTC", "Airport Terminal", "Botanical Garden", "Geneva Stadium", "Eaux-Vives Square", "Lake Street", "Geneva Beach", "Eaux-Vives Beach Park", "Lancy Pool", "House of Parliaments", "Rousseau School", "Vernier Village", "Vernier Market", "Vernier School", "Ain Avenue", "Bac Lane", "Theatre"]),
     orders: zip(ORDER, ["Look at the sun.", "Trace one down the glass.", "Read something.", "Think hard.", "Grab a bar.", "Wave at someone.", "Take a picture.", "Stare someone down.", "Clip your nails."]),
     card: { title: "PERMANENT LICENSE OF TRAVEL", number: "NO. 3S2G-2026", rows: ["Issued to", "Date of birth", "Place of issue", "Date of issue"],
       head: "IMPORTANT", important: "The holder of this licence takes three steps together with strangers before getting off, unless the bus says otherwise.",
@@ -137,6 +143,7 @@
       "{A} et {B} se coupent les ongles en rythme",
     ]),
     stops: ["Rue des Prunes", "Marché", "Vieux-Pont", "Terminus"],
+    names: zip(NAMES, ["Cookie", "Tigre", "Figue", "Mite", "Prune", "Biscuit", "Loutre", "Caillou", "Mangue", "Roitelet", "Tofu", "Haricot", "Comète", "Mousse", "Cornichon", "Pousse", "Nouille", "Noisette", "Bouton", "Trèfle", "Muffin", "Poivre", "Pâquerette", "Fougère", "Gingembre", "Miel", "Genièvre", "Kiwi", "Citron", "Érable", "Muscade", "Olive", "Cacahuète", "Coing", "Radis", "Sauge", "Navet", "Gaufre", "Igname", "Gland", "Bagel", "Miette", "Ravioli", "Anguille", "Peluche", "Oie", "Héron", "Igloo", "Gelée", "Koala", "Lama", "Moufle", "Triton", "Oignon", "Coquelicot", "Corbeau", "Sardine", "Tartine", "Noix", "Zèbre"]),
     orders: zip(ORDER, ["Regarde le soleil.", "Suis une goutte sur la vitre.", "Lis quelque chose.", "Réfléchis fort.", "Attrape une barre.", "Fais coucou à quelqu'un.", "Prends une photo.", "Fixe quelqu'un du regard.", "Coupe-toi les ongles."]),
     card: { title: "PERMIS DE VOYAGE PERMANENT", number: "N° 3S2G-2026", rows: ["Délivré à", "Date de naissance", "Lieu de délivrance", "Date de délivrance"],
       head: "IMPORTANT", important: "Le titulaire de ce permis fait trois pas avec des inconnus avant de descendre, sauf si le bus en décide autrement.",
@@ -206,6 +213,8 @@
       "{A} y {B} se cortan las uñas al mismo ritmo",
     ]),
     stops: ["Calle de las Ciruelas", "Mercado", "Puente Viejo", "Final de Línea"],
+    names: zip(NAMES, ["Galleta", "Tigre", "Higo", "Polilla", "Ciruela", "Bizcocho", "Nutria", "Guijarro", "Mango", "Chochín", "Tofu", "Judía", "Cometa", "Musgo", "Pepinillo", "Brote", "Fideo", "Avellana", "Botón", "Trébol", "Magdalena", "Pimienta", "Margarita", "Helecho", "Jengibre", "Miel", "Enebro", "Kiwi", "Limón", "Arce", "Moscada", "Aceituna", "Cacahuete", "Membrillo", "Rábano", "Salvia", "Nabo", "Gofre", "Ñame", "Bellota", "Rosquilla", "Miga", "Empanadilla", "Anguila", "Pelusa", "Ganso", "Garza", "Iglú", "Gelatina", "Koala", "Llama", "Manopla", "Tritón", "Cebolla", "Amapola", "Cuervo", "Sardina", "Tostada", "Nuez", "Cebra"]),
+    places: zip(PLACES, ["Estación Cornavin", "Estación de Vernier", "Estación de Sécheron", "Estación de Lancy-Bachet", "Aeropuerto Torre de Control", "Aeropuerto WTC", "Aeropuerto Terminal", "Jardín Botánico", "Estadio de Ginebra", "Plaza de Eaux-Vives", "Calle del Lago", "Playa de Ginebra", "Parque Playa Eaux-Vives", "Piscina de Lancy", "Casa de los Parlamentos", "Colegio Rousseau", "Vernier Pueblo", "Vernier Mercado", "Vernier Escuela", "Avenida del Ain", "Camino del Bac", "Teatro"]),
     orders: zip(ORDER, ["Mira el sol.", "Sigue una gota por el cristal.", "Lee algo.", "Piensa fuerte.", "Agarra una barra.", "Saluda a alguien.", "Saca una foto.", "Mira fijamente a alguien.", "Córtate las uñas."]),
     card: { title: "LICENCIA PERMANENTE DE VIAJE", number: "N.º 3S2G-2026", rows: ["Expedida a", "Fecha de nacimiento", "Lugar de expedición", "Fecha de expedición"],
       head: "IMPORTANTE", important: "El titular de esta licencia da tres pasos junto a desconocidos antes de bajarse, salvo que el autobús diga lo contrario.",
@@ -275,6 +284,8 @@
       "{A} und {B} schneiden sich im Takt die Nägel",
     ]),
     stops: ["Pflaumenweg", "Markt", "Alte Brücke", "Endstation"],
+    names: zip(NAMES, ["Keks", "Tiger", "Feige", "Motte", "Pflaume", "Zwieback", "Otter", "Kiesel", "Mango", "Zaunkönig", "Tofu", "Bohne", "Komet", "Moos", "Gurke", "Spross", "Nudel", "Haselnuss", "Knopf", "Klee", "Muffin", "Pfeffer", "Gänseblümchen", "Farn", "Ingwer", "Honig", "Wacholder", "Kiwi", "Zitrone", "Ahorn", "Muskat", "Olive", "Erdnuss", "Quitte", "Radieschen", "Salbei", "Rübe", "Waffel", "Yams", "Eichel", "Bagel", "Krümel", "Knödel", "Aal", "Flausch", "Gans", "Reiher", "Iglu", "Gelee", "Koala", "Lama", "Fäustling", "Molch", "Zwiebel", "Mohn", "Rabe", "Sardine", "Toast", "Walnuss", "Zebra"]),
+    places: zip(PLACES, ["Bahnhof Cornavin", "Bahnhof Vernier", "Bahnhof Sécheron", "Bahnhof Lancy-Bachet", "Flughafen Kontrollturm", "Flughafen WTC", "Flughafen Terminal", "Botanischer Garten", "Stadion Genf", "Eaux-Vives-Platz", "Seestraße", "Genfer Strand", "Strandpark Eaux-Vives", "Schwimmbad Lancy", "Haus der Parlamente", "Gymnasium Rousseau", "Vernier-Dorf", "Vernier-Markt", "Vernier-Schule", "Ain-Allee", "Bac-Weg", "Theater"]),
     orders: zip(ORDER, ["Schau in die Sonne.", "Folge einem Tropfen an der Scheibe.", "Lies etwas.", "Denk fest nach.", "Greif eine Stange.", "Wink jemandem zu.", "Mach ein Foto.", "Starr jemanden an.", "Schneid dir die Nägel."]),
     card: { title: "DAUERHAFTE REISELIZENZ", number: "NR. 3S2G-2026", rows: ["Ausgestellt für", "Geburtsdatum", "Ausstellungsort", "Ausstellungsdatum"],
       head: "WICHTIG", important: "Wer diese Lizenz besitzt, geht drei Schritte gemeinsam mit Fremden, bevor er aussteigt, außer der Bus sagt etwas anderes.",
@@ -344,6 +355,8 @@
       "{A} a {B} si stříhají nehty do stejného rytmu",
     ]),
     stops: ["Švestková", "Tržnice", "Starý most", "Konečná"],
+    names: zip(NAMES, ["Sušenka", "Tygr", "Fík", "Můra", "Švestka", "Piškot", "Vydra", "Oblázek", "Mango", "Střízlík", "Tofu", "Fazole", "Kometa", "Mech", "Okurka", "Klíček", "Nudle", "Oříšek", "Knoflík", "Jetel", "Muffin", "Pepř", "Sedmikráska", "Kapradí", "Zázvor", "Med", "Jalovec", "Kiwi", "Citron", "Javor", "Muškát", "Oliva", "Burák", "Kdoule", "Ředkvička", "Šalvěj", "Tuřín", "Oplatka", "Jam", "Žalud", "Bagel", "Drobek", "Knedlík", "Úhoř", "Chmýří", "Husa", "Volavka", "Iglú", "Želé", "Koala", "Lama", "Palčák", "Čolek", "Cibule", "Mák", "Havran", "Sardinka", "Topinka", "Ořech", "Zebra"]),
+    places: zip(PLACES, ["Nádraží Cornavin", "Nádraží Vernier", "Nádraží Sécheron", "Nádraží Lancy-Bachet", "Letiště – řídicí věž", "Letiště WTC", "Letiště – terminál", "Botanická zahrada", "Stadion Ženeva", "Náměstí Eaux-Vives", "Jezerní ulice", "Ženevská pláž", "Plážový park Eaux-Vives", "Koupaliště Lancy", "Dům parlamentů", "Gymnázium Rousseau", "Vernier-vesnice", "Vernier-tržnice", "Vernier-škola", "Třída Ain", "Cesta Bac", "Divadlo"]),
     orders: zip(ORDER, ["Podívej se do slunce.", "Sleduj kapku po skle.", "Něco si přečti.", "Usilovně přemýšlej.", "Chyť se tyče.", "Zamávej na někoho.", "Něco vyfoť.", "Propal někoho pohledem.", "Ostříhej si nehty."]),
     card: { title: "TRVALÁ CESTOVNÍ LICENCE", number: "Č. 3S2G-2026", rows: ["Vydáno pro", "Datum narození", "Místo vydání", "Datum vydání"],
       head: "DŮLEŽITÉ", important: "Držitel této licence udělá tři kroky spolu s cizími lidmi, než vystoupí, pokud autobus neřekne jinak.",
@@ -413,6 +426,8 @@
       "{A} और {B} एक ही लय में नाखून काटते हैं",
     ]),
     stops: ["आलूबुखारा गली", "बाज़ार", "पुराना पुल", "आख़िरी स्टॉप"],
+    names: zip(NAMES, ["कुकी", "बाघ", "अंजीर", "पतंगा", "आलूबुखारा", "बिस्कुट", "ऊदबिलाव", "कंकड़", "आम", "फुदकी", "टोफ़ू", "सेम", "धूमकेतु", "काई", "अचार", "अंकुर", "नूडल", "हेज़ल", "बटन", "तिपतिया", "मफ़िन", "मिर्च", "गुलबहार", "फ़र्न", "अदरक", "शहद", "जुनिपर", "कीवी", "नींबू", "मेपल", "जायफल", "ज़ैतून", "मूँगफली", "बिही", "मूली", "तुलसी", "शलगम", "वफ़ल", "रतालू", "बलूत", "बेगल", "चूरा", "मोमो", "बाम", "रुई", "हंस", "बगुला", "इग्लू", "जेली", "कोआला", "लामा", "दस्ताना", "न्यूट", "प्याज़", "पोस्ता", "कौआ", "सार्डिन", "टोस्ट", "अखरोट", "ज़ेबरा"]),
+    places: zip(PLACES, ["कॉर्नवां रेलवे स्टेशन", "वर्निये स्टेशन", "सेशेरों स्टेशन", "लांसी-बाशे स्टेशन", "हवाई अड्डा कंट्रोल टावर", "हवाई अड्डा WTC", "हवाई अड्डा टर्मिनल", "वनस्पति उद्यान", "जिनेवा स्टेडियम", "ओ-विव चौक", "झील रोड", "जिनेवा बीच", "ओ-विव बीच पार्क", "लांसी स्विमिंग पूल", "संसद भवन", "रूसो कॉलेज", "वर्निये गाँव", "वर्निये बाज़ार", "वर्निये स्कूल", "ऐं एवेन्यू", "बाक रोड", "थिएटर"]),
     orders: zip(ORDER, ["सूरज को देखो।", "शीशे पर एक बूँद का पीछा करो।", "कुछ पढ़ो।", "ज़ोर से सोचो।", "डंडा पकड़ो।", "किसी की ओर हाथ हिलाओ।", "फ़ोटो लो।", "किसी को घूरो।", "नाखून काटो।"]),
     card: { title: "स्थायी यात्रा लाइसेंस", number: "नं. 3S2G-2026", rows: ["जारी किया गया", "जन्म तिथि", "जारी करने का स्थान", "जारी करने की तिथि"],
       head: "महत्वपूर्ण", important: "इस लाइसेंस का धारक उतरने से पहले अजनबियों के साथ तीन क़दम चलता है, जब तक बस कुछ और न कहे।",
@@ -482,6 +497,8 @@
       "{A} w {B} 3am y2osso dawafron 3a nafs el ee2a3",
     ]),
     stops: ["Shere3 el Khokh", "El Souk", "El Jisr el 2adim", "Akher el Khatt"],
+    names: zip(NAMES, ["Ma3moul", "Nemr", "Tine", "Fraashe", "Khokh", "Baskout", "2ondos", "Ba7sa", "Manga", "3asfour", "Tofu", "Fasoulya", "Nayzak", "Ta7leb", "Kabis", "Bor3om", "Sh3eriyye", "Bunduk", "Zerr", "Barsim", "Kek", "Bhar", "Oukhawen", "Sarakhs", "Zanjabil", "3asal", "3ar3ar", "Kiwi", "Laymoun", "2ay2ab", "Jawzetib", "Zaytoun", "Fusto2", "Sfarjal", "Fejjel", "Mariamiyye", "Lefet", "Waffel", "Kolkas", "Ballout", "Ka3k", "Fatfoute", "Shishbarak", "Ankaliss", "Zaghab", "Wazze", "Balshoun", "Iglo", "Jelly", "Koala", "Lama", "Kaff", "Abubreiss", "Basal", "Shai2a", "Ghrab", "Sardine", "Toast", "Jawz", "Zebra"]),
+    places: zip(PLACES, ["Ma7attit Cornavin", "Ma7attit Vernier", "Ma7attit Sécheron", "Ma7attit Lancy-Bachet", "El Matar – Borj el Mora2aba", "El Matar WTC", "El Matar – Terminal", "El Jnayne el Nabatiyye", "Mal3ab Jnef", "Se7it Eaux-Vives", "Shere3 el Bou7ayra", "Ba7r Jnef", "Jnaynet Ba7r Eaux-Vives", "Masba7 Lancy", "Beit el Barlamanet", "Madraset Rousseau", "Day3it Vernier", "Souk Vernier", "Madraset Vernier", "Jaddet el Ain", "Darb el Bac", "El Masra7"]),
     orders: zip(ORDER, ["Talle3 bel shams.", "Itba3 n2ta 3al ezez.", "2ra shi.", "Fakker mni7.", "Imsok 3amoud.", "Lawwe7 la 7ada.", "Sawwer.", "Ba77le2 b 7ada.", "2os dawafrak."]),
     card: { title: "RUKHSAT SAFAR DA2IME", number: "RA2M 3S2G-2026", rows: ["Ma3touta la", "Tarikh el wilede", "Ma7all el isdar", "Tarikh el isdar"],
       head: "MOHEM", important: "Sa7eb hal rukhsa byemshi tlet khatwet ma3 ghoraba abel ma yenzal, ella iza el bus 2al ghayr shi.",

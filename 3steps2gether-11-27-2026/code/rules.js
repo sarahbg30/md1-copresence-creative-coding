@@ -42,6 +42,11 @@
   // load it first: require("./texts.js").
   const TEXT = globalThis.BusTexts || (typeof require === "function" && (require("./texts.js"), globalThis.BusTexts));
   const textOf = lang => TEXT[lang] || TEXT.en;
+  // A rider's name in a language ("Lemon", "Citron"…), and in the lines with an
+  // invisible mark first, so the game knows which words are names to colour.
+  const MARK = "\u200b";
+  const nameIn = (name, lang) => textOf(lang).names?.[name] ?? name[0] + name.slice(1).toLowerCase();
+  const who = (rider, lang) => MARK + nameIn(rider.name, lang);
   const yourAction = (action, lang) => textOf(lang).yours[action];
   // In English, for the tests and older code.
   const ACTIONS = TEXT.en.actions, YOUR_ACTIONS = TEXT.en.yours, MIXES = TEXT.en.mixes;
@@ -178,14 +183,14 @@
 
   function actionLine(rider, neighbour, lang) {
     const T = textOf(lang);
-    return `${rider.name} ${T.actions[rider.action].replace("{who}", neighbour ? neighbour.name : T.nobody)}`;
+    return `${who(rider, lang)} ${T.actions[rider.action].replace("{who}", neighbour ? who(neighbour, lang) : T.nobody)}`;
   }
 
   function mixLine(actor, other, lang) {
     const a = ORDER.indexOf(actor.action), b = ORDER.indexOf(other.action);
     const [first, second] = a <= b ? [actor, other] : [other, actor];
     return textOf(lang).mixes[`${first.action}+${second.action}`]
-      .replaceAll("{A}", first.name).replaceAll("{B}", second.name);
+      .replaceAll("{A}", who(first, lang)).replaceAll("{B}", who(second, lang));
   }
   // A line in every language, said in the ride's: what you do goes out to the
   // others, who read it in theirs.
@@ -240,14 +245,14 @@
       for (const r of ride.riders) if (r.where === "bus") { r.where = "gone"; r.target = null; }
       ride.over = true;
       ride.nextStopAt = Infinity;
-      const name = you(ride).name;
+      const name = who(you(ride), ride.lang);
       say(ride, t, ride.fakes ? T.endAll(name) : T.endHere(name), { heading: ride.fakes });
       return;
     }
 
     const off = onBus(ride).filter(r => r.fake && r.leavesAt <= k);
     for (const r of off) { r.where = "gone"; r.target = null; }
-    if (off.length) say(ride, t, T.off(list(off.map(r => r.name), T), off.length));
+    if (off.length) say(ride, t, T.off(list(off.map(r => who(r, ride.lang)), T), off.length));
 
     if (ride.fakes) for (let i = 0; i < NEW_PER_STOP; i++) ride.queue.push(newRider(ride, true).id);
 
@@ -271,11 +276,11 @@
         r.stillSince = t;
       }
     }
-    if (boarding.length) say(ride, t, T.on(list(boarding.map(id => ride.riders[id].name), T), boarding.length));
+    if (boarding.length) say(ride, t, T.on(list(boarding.map(id => who(ride.riders[id], ride.lang)), T), boarding.length));
 
     const place = ride.queue.indexOf(ride.you);
     if (place >= 0 && (you(ride).boardAt ?? 0) <= k) {
-      say(ride, t, T.wait(room - boarding.length > 0, you(ride).name, place + 1));
+      say(ride, t, T.wait(room - boarding.length > 0, who(you(ride), ride.lang), place + 1));
     }
 
     ride.nextStop++;
@@ -344,6 +349,6 @@
   }
 
   globalThis.BusRules = {
-    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, newRider, ACTIONS, YOUR_ACTIONS, MIXES, TEXT, yourAction, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
+    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, newRider, ACTIONS, YOUR_ACTIONS, MIXES, TEXT, yourAction, MARK, nameIn, who, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
   };
 })();

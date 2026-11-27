@@ -98,7 +98,7 @@ function joinLoop() {
   boardStop = n;
   me.since = now;   // when you got to the stop: everyone sits on the bench in this order
   busLine = routeStop(n).line;
-  ride.stops = [0, 1, 2, 3].map(i => routeStop(n + i).name);
+  ride.stops = [0, 1, 2, 3].map(i => routeStop(n + i).name).map(name => TX().places?.[name] ?? name);   // "Gare Cornavin": "Cornavin Station"…
   ride.legs = [0, 1, 2].map(i => LINE_LEGS[(n + i) % LINE_STOPS.length]);
   t0 = performance.now() - (now - (routeStopAt(n) - R.FIRST_STOP_AT));
 }
@@ -327,15 +327,21 @@ function styleOf(line) {
   if (line.heading) return LINE_STYLE.heading;
   return LINE_STYLE.info;
 }
-// Names come in capitals from the rules; they're shown as "Lemon". In the
-// window text each one is marked with an invisible character first, so only
-// real names get coloured (not "Plum" in "Plum Lane").
+// The rules write each name in your language ("Lemon", "Citron"…) with an
+// invisible mark first, so only real names get coloured (not "Plum" in "Plum
+// Lane"). Lines from an older page still have names in capitals: niceText
+// marks those.
 const niceName = name => name[0] + name.slice(1).toLowerCase();
-const MARK = "\u200b";
-const riderNamed = word => ride.riders.find(r => r.name === word.replace(/[^A-Za-z]/g, "").toUpperCase());
-const niceText = text => text.replace(/\b[A-Z]{2,}\b/g, w => riderNamed(w) ? MARK + niceName(w) : w);
+const MARK = R.MARK;
+const myName = r => R.nameIn(r.name, lang());
+function riderNamed(word) {
+  const w = word.slice(word.indexOf(MARK) + 1);   // "l'aura de ​Citron," -> "Citron,"
+  return ride.riders.find(r => { const n = myName(r); return w.startsWith(n) && !/[\p{L}\p{M}]/u.test(w[n.length] ?? ""); })
+    || ride.riders.find(r => r.name === w.replace(/[^A-Za-z]/g, "").toUpperCase());
+}
+const niceText = text => text.replace(/\b[A-Z]{2,}\b/g, w => ride.riders.some(r => r.name === w) ? MARK + myName({ name: w }) : w);
 function nameColour(word) {
-  if (!word.startsWith(MARK)) return null;
+  if (!word.includes(MARK)) return null;
   const r = riderNamed(word);
   if (!r) return null;
   return r === me ? MY_NAME_FILL : NAME_FILL;
@@ -614,7 +620,7 @@ const MIN_LOADING = 2000;
 function start() {
   const left = MIN_LOADING - millis();
   if (left > 0) { setTimeout(start, left); return; }
-  if (!window.LANG) { setTimeout(start, 100); return; }   // still choosing a language
+  if (!window.LANG) { window.askLanguage?.(); setTimeout(start, 100); return; }   // loaded: the birds bring the languages
   ride.lang = lang();
   ride.stops = TX().stops;   // without the live bus; joinLoop() puts the real stops
   document.getElementById("loading-bird")?.remove();
@@ -626,7 +632,7 @@ function start() {
   centreView(0, true);
   meX.set(standX(me.row) - drawnOn[me.colour].stand, 0, true);
   const todo = R.yourAction(me.action, lang());
-  write({ text: TX().welcome(me.name, ride.stops[0], busLine, todo), row: null, mine: true });
+  write({ text: TX().welcome(R.who(me, lang()), ride.stops[0], busLine, todo), row: null, mine: true });
   write({ text: TX().ride3(ride.stops.at(-1)), row: null, mine: true });
   ready = true;
 }
@@ -1123,7 +1129,7 @@ function drawNames(ctx, now, people, size) {
   for (const p of [...people].sort((a, b) => b.y - a.y)) {
     const a = nameFade.get(p.r.id).at(now);
     if (a <= 0.01) continue;
-    const label = p.label || p.r.name;
+    const label = p.label || myName(p.r);
     const w = textWidth(label) + size * 0.7, h = size * 1.05;
     let y = p.y - 10;
     while (placed.some(q => Math.abs(q.x - p.x) < (q.w + w) / 2 + 4 && Math.abs(q.y - y) < h + 4)) y -= 2;
@@ -1517,6 +1523,6 @@ window.onLiveAct = ({ pid, loop, lines }) => {
   if (!ready || !others.has(pid)) return;
   for (const l of lines) {
     const text = l.texts?.[lang()] ?? l.text;   // in your language when they sent it in both
-    write({ t: clock(), text, row: l.row, kind: l.kind, mine: l.kind === "mix" && text.includes(me.name) });
+    write({ t: clock(), text, row: l.row, kind: l.kind, mine: l.kind === "mix" && text.includes(myName(me)) });
   }
 };
