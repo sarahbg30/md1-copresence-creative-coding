@@ -96,6 +96,7 @@ function joinLoop() {
   let n = Math.floor(now / LINE_LOOP) * LINE_STOPS.length;
   while (routeStopAt(n) - now < CATCH_BY) n++;
   boardStop = n;
+  me.since = now;   // when you got to the stop: everyone sits on the bench in this order
   busLine = routeStop(n).line;
   ride.stops = [0, 1, 2, 3].map(i => routeStop(n + i).name);
   ride.legs = [0, 1, 2].map(i => LINE_LEGS[(n + i) % LINE_STOPS.length]);
@@ -574,19 +575,23 @@ function toBus(g, now) {
 }
 
 // --- p5 -------------------------------------------------------------------------
-let frost, small, blurWorks, shadowImg, mainCanvas;
+let frost, blurWorks, shadowImg, mainCanvas;
 
 function setup() {
   pixelDensity(Math.min(2, displayDensity()));
   createCanvas(windowWidth, windowHeight);
   mainCanvas = drawingContext.canvas;
   frost = createGraphics(width, height);
-  small = document.createElement("canvas");
   layout();
   // Real blur where the browser can do it; otherwise shrink and stretch.
-  const test = document.createElement("canvas").getContext("2d");
-  test.filter = "blur(2px)";
-  blurWorks = test.filter === "blur(2px)";
+  // Safari on iPhone keeps a `filter` you set but never blurs, so blur one
+  // dot for real and look at its neighbour.
+  const test = document.createElement("canvas");
+  test.width = test.height = 9;
+  const tc = test.getContext("2d", { willReadFrequently: true });
+  tc.filter = "blur(2px)";
+  tc.fillRect(4, 4, 1, 1);
+  blurWorks = tc.getImageData(2, 4, 1, 1).data[3] > 0;
   skyClouds = scatter({ dy: [-35, 25], scale: [0.7, 1.15] });
   windowClouds = scatter({ dy: [-10, 140], scale: [0.8, 1.2] });   // seen through the windows
   shadowImg = makeShadow();
@@ -706,10 +711,17 @@ function toStop(g = window) {
   g.translate(-STOP_CX, -H - STOP_LIFT);
 }
 
+// The people waiting at the same stop as you, in the order they got there, so
+// everyone's screen puts each of them in the same place (on your own screen
+// you are blue, on theirs they are).
+function stopLine() {
+  return ride.queue.map(id => ride.riders[id]).filter(r => (r.boardAt ?? 0) === 0)
+    .map((r, i) => [r.since ?? 1e15 + i, r])
+    .sort((a, b) => a[0] - b[0] || (a[1].name < b[1].name ? -1 : 1))
+    .map(([, r]) => r);
+}
 function benchRiders() {
-  // Only the people waiting at the same stop as you.
-  const line = ride.queue.map(id => ride.riders[id]).filter(r => (r.boardAt ?? 0) === 0);
-  const bench = line.slice(0, 3);
+  const bench = stopLine().slice(0, 3);
   if (!bench.includes(me)) bench[bench.length - 1] = me;
   return bench;
 }
@@ -752,7 +764,7 @@ function drawStop(now, t) {
   // next to you can show their names.
   const people = [];
   const bench = benchRiders();
-  ride.queue.map(id => ride.riders[id]).filter(r => !bench.includes(r)).slice(0, STAND.length).forEach((r, j) => {
+  stopLine().filter(r => !bench.includes(r)).slice(0, STAND.length).forEach((r, j) => {
     const s = sprites[FILE[r.colour] + "Standing"];
     ctx.save();
     ctx.translate(STAND[j].x, STAND[j].feet);
@@ -796,6 +808,24 @@ const CARD_BIRD_FRAMES = 3, CARD_BIRD_BOX = [57, 53, 1086, 687];
 // Where the browser has no blur filter, it's shrunk and stretched instead.
 const CARD_BLUR = 8;   // px
 const cardBg = document.createElement("canvas");
+// Shrinks part of a canvas to `f` of its size, halving it step by step (one
+// big step only keeps every 16th pixel and flickers), so stretching it back
+// up looks like a soft blur.
+const halves = [document.createElement("canvas"), document.createElement("canvas")];
+function shrink(src, sx, sy, sw, sh, f) {
+  const tw = Math.max(1, Math.round(sw * f)), th = Math.max(1, Math.round(sh * f));
+  let i = 0;
+  do {
+    const w = Math.max(tw, Math.round(sw / 2)), h = Math.max(th, Math.round(sh / 2));
+    const c = halves[i++ % 2];
+    c.width = w; c.height = h;
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    g.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+    [src, sx, sy, sw, sh] = [c, 0, 0, w, h];
+  } while (sw > tw || sh > th);
+  return src;
+}
 function blurBehindCard(ctx, a) {
   const c = mainCanvas, pd = pixelDensity();
   if (cardBg.width !== c.width || cardBg.height !== c.height) { cardBg.width = c.width; cardBg.height = c.height; }
@@ -806,12 +836,9 @@ function blurBehindCard(ctx, a) {
     g.drawImage(c, 0, 0);
     g.filter = "none";
   } else {
-    const f = 1 / (CARD_BLUR * pd);
-    small.width = Math.max(1, Math.round(c.width * f));
-    small.height = Math.max(1, Math.round(c.height * f));
-    small.getContext("2d").drawImage(c, 0, 0, small.width, small.height);
     g.imageSmoothingEnabled = true;
-    g.drawImage(small, 0, 0, c.width, c.height);
+    g.imageSmoothingQuality = "high";
+    g.drawImage(shrink(c, 0, 0, c.width, c.height, 1 / (CARD_BLUR * pd)), 0, 0, c.width, c.height);
   }
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1199,14 +1226,8 @@ function drawFrost(now, a, b) {
       ctx.drawImage(mainCanvas, bx, by, bw, bh, bx, by, bw, bh);
       ctx.filter = "none";
     } else {
-      const f = 1 / (3 * pd);
-      small.width = Math.max(1, Math.round(bw * f));
-      small.height = Math.max(1, Math.round(bh * f));
-      const sc = small.getContext("2d");
-      sc.imageSmoothingQuality = "high";
-      sc.drawImage(mainCanvas, bx, by, bw, bh, 0, 0, small.width, small.height);
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(small, bx, by, bw, bh);
+      ctx.drawImage(shrink(mainCanvas, bx, by, bw, bh, 1 / (3 * pd)), bx, by, bw, bh);
     }
     ctx.restore();
   }
@@ -1434,7 +1455,7 @@ const colourOf = pid => R.COLOURS[[...pid].reduce((h, c) => h + c.charCodeAt(0),
 // still goes out while your tab is in the background (draw() pauses then).
 function sendMe() {
   if (!window.Live || !LIVE || !ready) return;
-  const state = { v: TIMETABLE, name: me.name, action: me.action, boardAt: boardStop, where: me.where, row: me.row, lane: me.lane };
+  const state = { v: TIMETABLE, name: me.name, action: me.action, boardAt: boardStop, since: me.since, where: me.where, row: me.row, lane: me.lane };
   const json = JSON.stringify(state);
   if (json !== sentState) { sentState = json; window.Live.setMe(state); }
 }
@@ -1466,6 +1487,7 @@ function syncPeople() {
     r.name = st.name;
     r.action = st.action;
     r.boardAt = st.boardAt - boardStop;   // counted from your stop, like the rules count them
+    r.since = st.since;
     if (st.where === "queue" && r.where !== "bus") {
       r.where = "queue";
       if (!ride.queue.includes(r.id)) ride.queue.push(r.id);

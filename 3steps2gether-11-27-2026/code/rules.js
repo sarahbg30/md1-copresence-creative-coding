@@ -252,7 +252,7 @@
     const a = ORDER.indexOf(actor.action), b = ORDER.indexOf(other.action);
     const [first, second] = a <= b ? [actor, other] : [other, actor];
     return MIXES[`${first.action}+${second.action}`]
-      .replace("{A}", first.name).replace("{B}", second.name);
+      .replaceAll("{A}", first.name).replaceAll("{B}", second.name);
   }
 
   // You press your action. Returns the new story lines (one or two).
