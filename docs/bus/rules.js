@@ -45,6 +45,8 @@
     bar: "couldn't grab the bar",
     wave: "waves at {who}",
     photo: "tries to take a picture of {who}",
+    aura: "starts an aura battle with {who}",
+    nails: "clips their nails",
   };
   // The same actions said to you, for your button.
   const YOUR_ACTIONS = {
@@ -55,6 +57,8 @@
     bar: "try to grab the bar",
     wave: "wave",
     photo: "try to take a picture",
+    aura: "start an aura battle",
+    nails: "clip your nails",
   };
   const ORDER = Object.keys(ACTIONS);
 
@@ -90,6 +94,23 @@
     "wave+wave": "{A} and {B} wave at each other until it gets awkward",
     "wave+photo": "{B} tries to take a picture of {A}, who waves at the camera",
     "photo+photo": "{A} and {B} try to take a picture of each other at the same time",
+    "sun+aura": "{B} starts an aura battle with {A}, but {A}'s sun aura wins",
+    "sun+nails": "{B} clips a nail into {A}'s patch of sun",
+    "rain+aura": "{B} starts an aura battle with {A}, who answers with one raindrop",
+    "rain+nails": "{B} clips their nails to the rhythm of {A}'s raindrops",
+    "read+aura": "{B} starts an aura battle with {A}, who turns a page very slowly",
+    "read+nails": "a clipped nail from {B} lands on {A}'s page",
+    "think+aura": "{B} starts an aura battle with {A}, who loses by thinking too hard",
+    "think+nails": "{A} thinks very hard about why {B} is clipping their nails here",
+    "bar+aura": "{B} starts an aura battle with {A}, who loses it reaching for the bar",
+    "bar+nails": "{A} misses the bar and grabs {B}'s nail clipper",
+    "wave+aura": "{B} starts an aura battle with {A}, who just waves",
+    "wave+nails": "{A} waves at {B}, who waves back with the nail clipper",
+    "photo+aura": "{A} takes a picture of {B}'s aura, and it comes out blurry",
+    "photo+nails": "{A} tries to take a picture of {B} clipping their nails",
+    "aura+aura": "{A} and {B} have an aura battle, nobody blinks",
+    "aura+nails": "{A} starts an aura battle with {B}, who keeps clipping",
+    "nails+nails": "{A} and {B} clip their nails in rhythm",
   };
 
   const NAMES = [

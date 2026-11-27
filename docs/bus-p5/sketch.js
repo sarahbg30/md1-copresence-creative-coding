@@ -9,7 +9,7 @@
 // for the route.
 
 const R = BusRules;
-const A = "../bus/";                       // where the drawings live
+const A = "../resized-assets/";            // where the drawings live: cut to their edges (positions.js says where each sits)
 
 const W = 2544, H = 590;
 const VIEW_W = 980, VIEW_H = 650, BUS_TOP = 60;
@@ -54,10 +54,10 @@ const speed = Number(new URLSearchParams(location.search).get("speed")) || 1;
 let t0 = 0;
 const clock = () => (performance.now() - t0) * speed;
 
-// ?font=Special+Elite tries another Google font for all the text (Syne Mono,
-// a worn typewriter face, by default; it's loaded in index.html).
-const FONT = new URLSearchParams(location.search).get("font") || "Syne Mono";
-if (FONT !== "Syne Mono") {
+// ?font=Special+Elite tries another Google font for all the text (Gaegu,
+// a round handwritten face, by default; it's loaded in index.html).
+const FONT = new URLSearchParams(location.search).get("font") || "Gaegu";
+if (FONT !== "Gaegu") {
   // Plain, and with a bold too (some fonts have no bold: that one just fails).
   const fam = encodeURIComponent(FONT).replace(/%20/g, "+");
   for (const w of ["", ":wght@400;700"]) {
@@ -70,9 +70,9 @@ if (FONT !== "Syne Mono") {
 
 const ride = R.createRide({ now: 0 });
 const me = R.you(ride);
-// You start at the bus stop and are on the bus after 10 s, straight cut. The rules say 2 to 3 minutes: 120000 + Math.random() * 60000.
+// You start at the bus stop: 10 s of the stop, then 10 s with your card out, then a straight cut to the bus. The rules say 2 to 3 minutes: 120000 + Math.random() * 60000.
 // rules.js has it after 4 s, for the other prototypes.
-ride.nextStopAt = 10000;
+ride.nextStopAt = 20000;
 // One more person waits at the start; the bench holds three, so they stand.
 for (let i = 0; i < 1; i++) ride.queue.push(R.newRider(ride, true).id);
 
@@ -83,7 +83,7 @@ for (let i = 0; i < 1; i++) ride.queue.push(R.newRider(ride, true).id);
 const sprites = {};
 // The "naked" drawings (../bus/naked/, no filter baked in), one picture each;
 // dreamcore-assets.js gives each one Sarah's dreamcore filter while loading.
-const N = "naked/";
+const N = "";   // the naked drawings, cropped, sit in resized-assets itself
 const TO_LOAD = [
   ["window", N + "Window.png"], ["interior", N + "InteriorBus.png"], ["seats", N + "FrontSeats.png"],
   ["coque", N + "BusCoque.png"], ["road", N + "road.png"],
@@ -104,6 +104,8 @@ function loadAll() {
     const [key, src, white] = TO_LOAD[asked++];
     loadImage(A + src, img => {
       bake(img, white).then(s => {
+        const [px, py] = (window.ASSET_POS || {})[src] || [0, 0];   // back where it sat on the full canvas
+        s.x += px; s.y += py;
         sprites[key] = s;
         if (++loaded === TO_LOAD.length) start(); else next();
       }, () => { failed = src; });
@@ -555,6 +557,8 @@ function start() {
   const left = MIN_LOADING - millis();
   if (left > 0) { setTimeout(start, left); return; }
   document.getElementById("loading-bird")?.remove();
+  cardPrintPicture();   // ready before the card comes out
+  routePicture(0); markerPicture();   // and the route map, before the bus
   t0 = performance.now();
   lastMillis = millis();
   centreView(0, true);
@@ -620,6 +624,7 @@ function draw() {
   drawFrontCloud(drawingContext);
   drawBirds(drawingContext, now, "front");
   pop();
+  drawRoute(t);   // the bus's way, above it: stops passed filled in
   drawButtons(now);
 }
 
@@ -719,6 +724,136 @@ function drawStop(now, t) {
   drawFrontCloud(ctx);
   drawBirds(ctx, now, "front");
   pop();
+  drawCard(ctx, now, t);
+}
+
+// --- The bus card --------------------------------------------------------------------
+// When the bus is coming, you take out your bus card: it shows in the middle
+// of the screen for the last CARD_TIME of the wait, with the little birds
+// around its edge flapping (3 drawings, card-bird-anim in naked assets).
+// card-small.png and card-birds-*.png are cut from the 6307 x 1462 drawings,
+// all to the same box, so they sit on top of each other.
+const CARD_TIME = 10000, CARD_FADE = 250, CARD_BIRD_FPS = 4;
+const cardPic = DreamAssets.picture(A + "card-small.png", 1);
+const cardText = DreamAssets.picture(A + "card-text.png", 1);   // exemple-text-manuscrit: name, dates, place, signature
+const cardBirds = [1, 2, 3].map(i => DreamAssets.picture(A + `card-birds-${i}.png`, 1));
+// The stop behind the card goes blurry while the card is out (`a`: 0 to 1).
+// Where the browser has no blur filter, it's shrunk and stretched instead.
+const CARD_BLUR = 8;   // px
+const cardBg = document.createElement("canvas");
+function blurBehindCard(ctx, a) {
+  const c = mainCanvas, pd = pixelDensity();
+  if (cardBg.width !== c.width || cardBg.height !== c.height) { cardBg.width = c.width; cardBg.height = c.height; }
+  const g = cardBg.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  if (blurWorks) {
+    g.filter = `blur(${CARD_BLUR * pd}px)`;
+    g.drawImage(c, 0, 0);
+    g.filter = "none";
+  } else {
+    const f = 1 / (CARD_BLUR * pd);
+    small.width = Math.max(1, Math.round(c.width * f));
+    small.height = Math.max(1, Math.round(c.height * f));
+    small.getContext("2d").drawImage(c, 0, 0, small.width, small.height);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(small, 0, 0, c.width, c.height);
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = a;
+  ctx.drawImage(cardBg, 0, 0);
+  ctx.restore();
+}
+// The printed part of the card, in a typewriter face like an old travel
+// licence: titles, the labels on dotted lines (the handwriting sits on them),
+// two short paragraphs and the captions. Laid out on the 1200 x 787
+// card-small.png, drawn once, through the filter.
+const CARD_FONT = "Courier Prime", CARD_INK = "#3b3330";
+const CARD_ROWS = [["Issued to", 210], ["Date of birth", 252], ["Place of issue", 298], ["Date of issue", 343]];
+// A short order for each action, under the action as a heading.
+const CARD_ORDERS = {
+  sun: "Look at the sun.", rain: "Follow the raindrops.", read: "Read something.",
+  think: "Think hard.", bar: "Grab a bar.", wave: "Wave at someone.", photo: "Take a picture.",
+  aura: "Stare someone down.", nails: "Clip your nails.",
+};
+// Each paragraph: [title, text, a bold last line]. The first one is the
+// action you're given for the ride.
+const CARD_PARAS = () => [
+  [R.YOUR_ACTIONS[me.action].toUpperCase(), CARD_ORDERS[me.action]],
+  ["IMPORTANT", "The holder of this licence takes three steps together with strangers before getting off, unless the bus says otherwise."],
+];
+let cardPrint = null;
+function cardPrintPicture() {
+  if (cardPrint) return cardPrint;
+  const fonts = [`bold 15px "${CARD_FONT}"`, `15px "${CARD_FONT}"`, `italic 12px "${CARD_FONT}"`];
+  if (!fonts.every(f => document.fonts.check(f))) { fonts.forEach(f => document.fonts.load(f)); return null; }
+  const c = document.createElement("canvas");
+  c.width = 1200; c.height = 787;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.fillStyle = CARD_INK;
+  const L = 605, R = 1035, MID = (L + R) / 2;
+  const font = (style, px) => { g.font = `${style} ${px}px "${CARD_FONT}"`; };
+  const dots = (x0, x1, y) => { for (let x = x0; x < x1; x += 6) g.fillRect(x, y - 1.5, 2, 2); };
+  g.textAlign = "center";
+  font("bold", 17); g.fillText("PERMANENT LICENSE OF TRAVEL", MID, 158);
+  font("bold", 15); g.fillText("NO. 3S2G-2026", MID, 180);
+  g.textAlign = "left";
+  font("", 14);
+  for (const [label, y] of CARD_ROWS) {
+    g.fillText(label, L, y);
+    dots(L + g.measureText(label).width + 6, R, y);
+  }
+  let y = 390;
+  const lines = (text, style) => {
+    font(style, 13);
+    let line = "";
+    for (const word of text.split(" ")) {
+      const next = line ? line + " " + word : word;
+      if (g.measureText(next).width > R - L && line) { g.fillText(line, L, y); y += 17; line = word; }
+      else line = next;
+    }
+    g.fillText(line, L, y);
+  };
+  for (const [title, text, bold] of CARD_PARAS()) {
+    g.textAlign = "center";
+    font("bold", 14); g.fillText(title, MID, y);
+    y += 22;
+    g.textAlign = "left";
+    lines(text, "");
+    if (bold) { y += 19; lines(bold, "bold"); }
+    y += 30;
+  }
+  dots(L, R, 678);
+  g.textAlign = "center";
+  font("italic", 12);
+  g.fillText("Signature of authorized traveler", MID, 696);
+  g.fillText("Photograph of authorized traveler", 345, 655);
+  let frames = [c];
+  if (DreamAssets.on) frames = DreamAssets.apply(g.getImageData(0, 0, c.width, c.height), 1, true).map(d => {
+    const f = document.createElement("canvas");
+    f.width = c.width; f.height = c.height;
+    f.getContext("2d").putImageData(d, 0, 0);
+    return f;
+  });
+  return cardPrint = { frames };
+}
+function drawCard(ctx, now, t) {
+  const left = ride.nextStopAt - t;
+  if (left > CARD_TIME || !cardPic.frames.length) return;
+  const shown = (CARD_TIME - left) / speed;          // ms since it came out
+  const a = easeInOut(Math.min(1, shown / CARD_FADE));
+  const w = Math.min(width * 0.62, height * 0.75 * cardPic.w / cardPic.h), h = w * cardPic.h / cardPic.w;
+  const x = (width - w) / 2, y = (height - h) / 2 + 20 * (1 - a);   // comes up a little
+  blurBehindCard(ctx, a);
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.drawImage(DreamAssets.frame(cardPic, now), x, y, w, h);
+  const print = cardPrintPicture();
+  if (print) ctx.drawImage(DreamAssets.frame(print, now), x, y, w, h);
+  if (cardText.frames.length) ctx.drawImage(DreamAssets.frame(cardText, now), x, y, w, h);
+  const b = cardBirds[Math.floor(now / (1000 / CARD_BIRD_FPS)) % 3];
+  if (b.frames.length) ctx.drawImage(DreamAssets.frame(b, now), x, y, w, h);
+  ctx.restore();
 }
 
 // While the drawings load, the yellow bird flaps in index.html (#loading-bird),
@@ -1052,36 +1187,80 @@ function drawFrost(now, a, b) {
 }
 
 // The route above the bus: four stops, the ones passed filled in, and a
-// marker for the bus.
+// marker for the bus. Drawn once per number of stops passed (and the marker
+// once), each put through the dreamcore filter like the drawings.
+// The pictures cover the route's box, x 40 to 1960 and y 50 to 250 of its
+// own units, at ROUTE_RES pixels a unit.
+const ROUTE_RES = 0.5, ROUTE_BOX = [40, 50, 1920, 200], MARKER_R = 36;
+const routePictures = new Map();
+function filtered(c, scale) {
+  if (!DreamAssets.on) return { frames: [c] };
+  const g = c.getContext("2d", { willReadFrequently: true });
+  return { frames: DreamAssets.apply(g.getImageData(0, 0, c.width, c.height), scale, true).map(d => {
+    const f = document.createElement("canvas");
+    f.width = c.width; f.height = c.height;
+    f.getContext("2d").putImageData(d, 0, 0);
+    return f;
+  }) };
+}
+// Pixels of the picture per unit of the bus canvas, for the filter's glow and grain.
+const routeFilterScale = () => ROUTE_RES / (0.48 * VIEW_W / 1920);
+function routePicture(passed) {
+  if (routePictures.has(passed)) return routePictures.get(passed);
+  const [bx, by, bw, bh] = ROUTE_BOX;
+  const c = document.createElement("canvas");
+  c.width = bw * ROUTE_RES; c.height = bh * ROUTE_RES;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.scale(ROUTE_RES, ROUTE_RES);
+  g.translate(-bx, -by);
+  g.strokeStyle = INK;
+  g.lineCap = g.lineJoin = "round";
+  g.lineWidth = 16;
+  g.stroke(new Path2D(ROUTE));
+  g.lineWidth = 14;
+  STOP_RINGS.forEach(([cx, cy, rx, ry, deg], i) => {
+    g.fillStyle = i < passed ? BLUE : PAPER;
+    g.beginPath();
+    g.ellipse(cx, cy, rx, ry, deg * Math.PI / 180, 0, 2 * Math.PI);
+    g.fill();
+    g.stroke();
+  });
+  const pic = filtered(c, routeFilterScale());
+  routePictures.set(passed, pic);
+  return pic;
+}
+let markerPic = null;
+function markerPicture() {
+  if (markerPic) return markerPic;
+  const c = document.createElement("canvas");
+  c.width = c.height = Math.ceil(2 * MARKER_R * ROUTE_RES);
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.scale(ROUTE_RES, ROUTE_RES);
+  g.fillStyle = BLUE;
+  g.strokeStyle = INK;
+  g.lineWidth = 10;
+  g.beginPath();
+  g.arc(MARKER_R, MARKER_R, 26, 0, 2 * Math.PI);
+  g.fill();
+  g.stroke();
+  return markerPic = filtered(c, routeFilterScale());
+}
 function drawRoute(t) {
   const p = R.progress(ride, t);
   const n = Math.floor(p);
   const xs = STOP_RINGS.map(s => s[0]);
   const mx = n >= xs.length - 1 ? xs.at(-1) : xs[n] + (xs[n + 1] - xs[n]) * (p - n);
+  const now = millis(), ctx = drawingContext;
+  const route = routePicture(ride.over ? STOP_RINGS.length : ride.nextStop), marker = markerPicture();
+  const [bx, by, bw, bh] = ROUTE_BOX;
   push();
   toView();
   const w = 0.48 * VIEW_W, s = w / 1920;
   translate(VIEW_W / 2 - w / 2, 0.006 * VIEW_W);
   scale(s);
   translate(-40, -50);
-  stroke(INK);
-  strokeCap(ROUND);
-  strokeJoin(ROUND);
-  strokeWeight(16);
-  noFill();
-  drawingContext.stroke(new Path2D(ROUTE));
-  strokeWeight(14);
-  STOP_RINGS.forEach(([cx, cy, rx, ry, deg], i) => {
-    fill(i < ride.nextStop || ride.over ? BLUE : PAPER);
-    push();
-    translate(cx, cy);
-    rotate(radians(deg));
-    ellipse(0, 0, 2 * rx, 2 * ry);
-    pop();
-  });
-  fill(BLUE);
-  strokeWeight(10);
-  circle(mx, 140, 52);
+  ctx.drawImage(DreamAssets.frame(route, now), bx, by, bw, bh);
+  ctx.drawImage(DreamAssets.frame(marker, now), mx - MARKER_R, 140 - MARKER_R, 2 * MARKER_R, 2 * MARKER_R);
   pop();
 }
 

@@ -28,7 +28,7 @@ test("every pair of actions has its own mix line", () => {
     const [x, y] = keys.indexOf(a) <= keys.indexOf(b) ? [a, b] : [b, a];
     assert.ok(R.MIXES[`${x}+${y}`], `${x}+${y}`);
   }
-  assert.equal(Object.keys(R.MIXES).length, 28);
+  assert.equal(Object.keys(R.MIXES).length, 45);
 });
 
 test("the bus has 28 seats and starts with nobody on your seat", () => {

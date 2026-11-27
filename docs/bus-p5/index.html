@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>the bus (p5)</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne+Mono&display=swap">
+<title>3steps 2gether</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap">
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #7fa8cf; }
   /* No scrolling, zooming or text selection while tapping on a phone. */
@@ -17,7 +17,7 @@
     width: calc(22vmin * 176 / 216); height: 22vmin; margin: -11vmin 0 0 calc(-11vmin * 176 / 216);
     animation: bob 0.9s ease-in-out infinite alternate; will-change: transform; }
   #loading-bird span { position: absolute; inset: 0; transform: scaleX(-1); opacity: 0;
-    background: url(../bus/yellow-bird.png) no-repeat; background-size: 900% 100%;   /* the strip has 9 frames; the first 8 are used */
+    background: url(../resized-assets/yellow-bird.png) no-repeat; background-size: 900% 100%;   /* the strip has 9 frames; the first 8 are used */
     animation: flap 1s linear infinite; will-change: opacity; }
   #loading-bird span:first-child { opacity: 1; }   /* a still bird if the animation can't run */
   @keyframes flap { 0%, 12.4% { opacity: 1; } 12.5%, 100% { opacity: 0; } }
@@ -38,9 +38,10 @@
 <!-- The p5.js version of the bus. The rules and the drawings are shared with ../bus/. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
 <!-- Bump ?v= on every change, so phones don't keep an old copy. -->
-<script src="../bus/rules.js?v=4"></script>
+<script src="../bus/rules.js?v=5"></script>
+<script src="../resized-assets/positions.js?v=2"></script>
 <script src="dreamcore-assets.js?v=3"></script>
 <script src="dreamcore-filter.js?v=4"></script>
-<script src="sketch.js?v=74"></script>
+<script src="sketch.js?v=86"></script>
 </body>
 </html>
