@@ -59,7 +59,7 @@ const clock = () => (performance.now() - t0) * speed;
 // 6, 10 and 22 one after the other (real stops, from the 2025 timetables),
 // then starts again, on the same clock for everyone (the time of day,
 // counted from 1970). When you arrive you wait for the next stop it calls at
-// (at least CATCH_BY away, so your card has time to come out), get on there
+// (at least CATCH_BY away, so you have time to take out your card), get on there
 // and ride three stops. At the end of a line the bus carries on as the next one. Stops
 // are numbered from 1970 too, so everyone agrees on them (boardStop). The
 // clock is negative while you wait.
@@ -83,7 +83,10 @@ const LINE_STOPS = Object.entries(LINES).flatMap(([line, stops]) => stops.map(na
 const LINE_LEGS = LINE_STOPS.map((_, i) => 30000 + ((i * 7919) % 7) * 5000);
 const LINE_AT = LINE_LEGS.reduce((at, leg) => [...at, at.at(-1) + leg], [0]);   // LINE_AT[i]: stop i, from the start of a round
 const LINE_LOOP = LINE_AT.pop();
-const CATCH_BY = 12000;
+const CATCH_BY = 3000;
+// The bus timetable's version. Riders on another version have another
+// timetable, so they're on another bus: an older page reloads itself.
+const TIMETABLE = 2;
 const routeStop = n => LINE_STOPS[n % LINE_STOPS.length];
 const routeStopAt = n => Math.floor(n / LINE_STOPS.length) * LINE_LOOP + LINE_AT[n % LINE_STOPS.length];   // Date.now() time of stop n
 let boardStop = 0;                       // the stop where you get on, numbered from 1970
@@ -100,9 +103,10 @@ function joinLoop() {
 }
 
 // ?font=Special+Elite tries another Google font for all the text (Gaegu,
-// a round handwritten face, by default; it's loaded in index.html).
-const FONT = new URLSearchParams(location.search).get("font") || "Gaegu";
-if (FONT !== "Gaegu") {
+// a round handwritten face, by default, with the accents it lacks filled in:
+// "Gaegu FR" in index.html).
+const FONT = new URLSearchParams(location.search).get("font") || "Gaegu FR";
+if (FONT !== "Gaegu FR") {
   // Plain, and with a bold too (some fonts have no bold: that one just fails).
   const fam = encodeURIComponent(FONT).replace(/%20/g, "+");
   for (const w of ["", ":wght@400;700"]) {
@@ -592,7 +596,7 @@ function setup() {
   birdPng.src = A + "background-assets/yellow-bird.png";
   const birdShown = birdPng.decode().catch(() => {})
     .then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 300)))));
-  Promise.all([document.fonts.load(`20px "${FONT}"`), document.fonts.load(`bold 20px "${FONT}"`), DreamAssets.ready, birdShown]).finally(loadAll);
+  Promise.all([document.fonts.load(`20px "${FONT}"`, "Aéà"), document.fonts.load(`bold 20px "${FONT}"`, "Aéà"), DreamAssets.ready, birdShown]).finally(loadAll);
 }
 
 // The bird flies for at least this long, even when everything loads fast.
@@ -1430,7 +1434,7 @@ const colourOf = pid => R.COLOURS[[...pid].reduce((h, c) => h + c.charCodeAt(0),
 // still goes out while your tab is in the background (draw() pauses then).
 function sendMe() {
   if (!window.Live || !LIVE || !ready) return;
-  const state = { name: me.name, action: me.action, boardAt: boardStop, where: me.where, row: me.row, lane: me.lane };
+  const state = { v: TIMETABLE, name: me.name, action: me.action, boardAt: boardStop, where: me.where, row: me.row, lane: me.lane };
   const json = JSON.stringify(state);
   if (json !== sentState) { sentState = json; window.Live.setMe(state); }
 }
@@ -1449,6 +1453,8 @@ function syncPeople() {
   const here = new Set();
   for (const { pid, state: st } of live.people) {
     if (!st || st.boardAt == null) continue;
+    if ((st.v ?? 1) > TIMETABLE) { location.reload(); return; }   // this page is out of date
+    if ((st.v ?? 1) !== TIMETABLE) continue;                       // theirs is: another bus
     here.add(pid);
     let r = others.get(pid);
     if (!r) {

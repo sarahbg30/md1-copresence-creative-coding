@@ -1,0 +1,10 @@
+{
+  "name": "3steps 2gether",
+  "short_name": "3steps 2gether",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#87a4ad",
+  "theme_color": "#87a4ad",
+  "icons": [{ "src": "icon.png", "sizes": "180x180", "type": "image/png" }]
+}
