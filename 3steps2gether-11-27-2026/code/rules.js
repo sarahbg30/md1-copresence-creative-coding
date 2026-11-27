@@ -26,7 +26,7 @@
   // The four circles on the route map: where you get on, then three stops to
   // where you get off. Legs are the times between them. These are the
   // defaults; a ride can be given its own (createRide's stops and legs).
-  const STOPS = ["Plum Lane", "the Market", "Old Bridge", "the End of the Line"];
+  const STOPS = ["Plum Lane", "the Market", "Old Bridge", "the End of the Line"];   // texts.js has them in every language
   const LEGS = [45000, 110000, 105000];
   const FIRST_STOP_AT = 4000;
 
@@ -38,82 +38,15 @@
   const CHANGE_SEAT = 0.2;           // chance, each time a fake rider acts, of changing seats
   const DOOR = 0;
 
-  // One action per rider for the whole ride. {who} is their neighbour.
-  const ACTIONS = {
-    sun: "contemplates the sun",
-    rain: "follows the raindrops with their fingers",
-    read: "pretends to read",
-    think: "thinks very hard",
-    bar: "couldn't grab the bar",
-    wave: "waves at {who}",
-    photo: "tries to take a picture of {who}",
-    aura: "starts an aura battle with {who}",
-    nails: "clips their nails",
-  };
-  // The same actions said to you, for your button.
-  const YOUR_ACTIONS = {
-    sun: "contemplate the sun",
-    rain: "follow raindrops",
-    read: "pretend to read",
-    think: "think very hard",
-    bar: "try to grab the bar",
-    wave: "wave",
-    photo: "try to take a picture",
-    aura: "start an aura battle",
-    nails: "clip your nails",
-  };
+  // Every text is in texts.js, in each language (ride.lang). Under node,
+  // load it first: require("./texts.js").
+  const TEXT = globalThis.BusTexts || (typeof require === "function" && (require("./texts.js"), globalThis.BusTexts));
+  const textOf = lang => TEXT[lang] || TEXT.en;
+  const yourAction = (action, lang) => textOf(lang).yours[action];
+  // In English, for the tests and older code.
+  const ACTIONS = TEXT.en.actions, YOUR_ACTIONS = TEXT.en.yours, MIXES = TEXT.en.mixes;
+  // One action per rider for the whole ride, in this order (the mixes' keys use it).
   const ORDER = Object.keys(ACTIONS);
-
-  // One hand-written line for every pair of actions. The key lists the two
-  // actions in the order above; {A} has the first action, {B} the second.
-  // For a pair of the same action, {A} is the one who just acted.
-  const MIXES = {
-    "sun+sun": "{A} and {B} close their eyes in the same patch of sun",
-    "sun+rain": "{B} draws a raindrop on the glass, right where {A} was looking at the sun",
-    "sun+read": "{B}'s pages light up while {A} squints at the sun",
-    "sun+think": "{A} squints at the sun, {B} squints at a thought",
-    "sun+bar": "{B} sways into {A}'s sunbeam and stays there",
-    "sun+wave": "{B} waves at {A}, who is too busy with the sun to notice",
-    "sun+photo": "{B} tries to take a picture of {A}, but the sun turns it all white",
-    "rain+rain": "{A} and {B} race two raindrops down the glass",
-    "rain+read": "{B} turns a page every time {A}'s raindrop reaches the bottom",
-    "rain+think": "{A} traces a raindrop, {B} traces a thought",
-    "rain+bar": "{B} misses the bar and catches {A}'s raindrop instead",
-    "rain+wave": "{B} waves at {A}, who waves back with a wet finger",
-    "rain+photo": "{B} tries to take a picture of {A}'s raindrop before it falls",
-    "read+read": "{A} and {B} pretend to read the same page",
-    "read+think": "{B} thinks very hard about what {A} is pretending to read",
-    "read+bar": "{B} misses the bar and grabs {A}'s book instead",
-    "read+wave": "{B} waves at {A}, who peeks over the book",
-    "read+photo": "{B} tries to take a picture of {A}, who hides behind the book",
-    "think+think": "{A} and {B} think very hard, side by side, about nothing at all",
-    "think+bar": "{B} misses the bar and lands on {A}'s train of thought",
-    "think+wave": "{B} waves at {A}, who is thinking too hard to wave back",
-    "think+photo": "{B} tries to take a picture of {A}'s thinking face",
-    "bar+bar": "{A} and {B} both miss the bar and hold on to each other",
-    "bar+wave": "{B} waves at {A}, who waves back and nearly falls over",
-    "bar+photo": "{B} tries to take a picture of {A} missing the bar, a second too late",
-    "wave+wave": "{A} and {B} wave at each other until it gets awkward",
-    "wave+photo": "{B} tries to take a picture of {A}, who waves at the camera",
-    "photo+photo": "{A} and {B} try to take a picture of each other at the same time",
-    "sun+aura": "{B} starts an aura battle with {A}, but {A}'s sun aura wins",
-    "sun+nails": "{B} clips a nail into {A}'s patch of sun",
-    "rain+aura": "{B} starts an aura battle with {A}, who answers with one raindrop",
-    "rain+nails": "{B} clips their nails to the rhythm of {A}'s raindrops",
-    "read+aura": "{B} starts an aura battle with {A}, who turns a page very slowly",
-    "read+nails": "a clipped nail from {B} lands on {A}'s page",
-    "think+aura": "{B} starts an aura battle with {A}, who loses by thinking too hard",
-    "think+nails": "{A} thinks very hard about why {B} is clipping their nails here",
-    "bar+aura": "{B} starts an aura battle with {A}, who loses it reaching for the bar",
-    "bar+nails": "{A} misses the bar and grabs {B}'s nail clipper",
-    "wave+aura": "{B} starts an aura battle with {A}, who just waves",
-    "wave+nails": "{A} waves at {B}, who waves back with the nail clipper",
-    "photo+aura": "{A} takes a picture of {B}'s aura, and it comes out blurry",
-    "photo+nails": "{A} tries to take a picture of {B} clipping their nails",
-    "aura+aura": "{A} and {B} have an aura battle, nobody blinks",
-    "aura+nails": "{A} starts an aura battle with {B}, who keeps clipping",
-    "nails+nails": "{A} and {B} clip their nails in rhythm",
-  };
 
   const NAMES = [
     "COOKIE", "TIGER", "FIG", "MOTH", "PLUM", "BISCUIT", "OTTER", "PEBBLE", "MANGO", "WREN",
@@ -198,16 +131,15 @@
     return line;
   }
 
-  const list = names =>
-    names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-  const ordinal = n => n + ({ 1: "st", 2: "nd", 3: "rd" }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] ?? "th");
+  const list = (names, T) =>
+    names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} ${T.and} ${names.at(-1)}`;
 
   // A new ride. Options: rng (defaults to Math.random), now, aboard (how many
   // fake riders are already on the bus), ahead (fake riders in line before you),
   // fakes (false: no fake riders at all, only the real people added from outside).
-  function createRide({ rng = Math.random, now = 0, aboard, ahead, fakes = true, stops = STOPS, legs = LEGS } = {}) {
+  function createRide({ rng = Math.random, now = 0, aboard, ahead, fakes = true, stops = STOPS, legs = LEGS, lang = "en" } = {}) {
     const ride = {
-      rng, fakes, stops, legs, riders: [], usedNames: new Set(), queue: [], story: [],
+      rng, fakes, stops, legs, lang, riders: [], usedNames: new Set(), queue: [], story: [],
       nextStop: 0, nextStopAt: now + FIRST_STOP_AT, lastMixAt: -Infinity, over: false, you: 0, readyFor: -1, mixed: new Set(),
     };
     ride.you = newRider(ride, false).id;
@@ -244,29 +176,38 @@
     return best.length ? pick(ride, best) : null;
   }
 
-  function actionLine(rider, neighbour) {
-    return `${rider.name} ${ACTIONS[rider.action].replace("{who}", neighbour ? neighbour.name : "nobody")}`;
+  function actionLine(rider, neighbour, lang) {
+    const T = textOf(lang);
+    return `${rider.name} ${T.actions[rider.action].replace("{who}", neighbour ? neighbour.name : T.nobody)}`;
   }
 
-  function mixLine(actor, other) {
+  function mixLine(actor, other, lang) {
     const a = ORDER.indexOf(actor.action), b = ORDER.indexOf(other.action);
     const [first, second] = a <= b ? [actor, other] : [other, actor];
-    return MIXES[`${first.action}+${second.action}`]
+    return textOf(lang).mixes[`${first.action}+${second.action}`]
       .replaceAll("{A}", first.name).replaceAll("{B}", second.name);
   }
+  // A line in every language, said in the ride's: what you do goes out to the
+  // others, who read it in theirs.
+  const inAll = (ride, make) => {
+    const texts = Object.fromEntries(Object.keys(TEXT).map(l => [l, make(l)]));
+    return { text: texts[ride.lang] || texts.en, texts };
+  };
 
   // You press your action. Returns the new story lines (one or two).
   function act(ride, now) {
     const me = you(ride);
     if (me.where !== "bus" || ride.over) return [];
     const other = neighbourOf(ride, me);
-    const lines = [say(ride, now, actionLine(me, other), { row: me.row, kind: "act", mine: true })];
+    const did = inAll(ride, l => actionLine(me, other, l));
+    const lines = [say(ride, now, did.text, { row: me.row, kind: "act", mine: true, texts: did.texts })];
     // A mix happens once per pair of people, and at most once every 10 s.
     const pair = other && [me.id, other.id].sort((a, b) => a - b).join("+");
     if (other && !ride.mixed.has(pair) && now - ride.lastMixAt >= MIX_EVERY) {
       ride.lastMixAt = now;
       ride.mixed.add(pair);
-      lines.push(say(ride, now, mixLine(me, other), { row: me.row, kind: "mix", mine: true }));
+      const mix = inAll(ride, l => mixLine(me, other, l));
+      lines.push(say(ride, now, mix.text, { row: me.row, kind: "mix", mine: true, texts: mix.texts }));
     }
     return lines;
   }
@@ -292,20 +233,21 @@
   function arrive(ride, t) {
     const k = ride.nextStop;
     const last = k === ride.stops.length - 1;
-    say(ride, t, `The bus stops at ${ride.stops[k]}.`);
+    const T = textOf(ride.lang);
+    say(ride, t, T.stop(ride.stops[k]), { heading: true, stop: true });
 
     if (last) {
       for (const r of ride.riders) if (r.where === "bus") { r.where = "gone"; r.target = null; }
       ride.over = true;
       ride.nextStopAt = Infinity;
-      say(ride, t, ride.fakes ? `End of the line. Everybody gets off, ${you(ride).name} too.`
-                              : `${you(ride).name} gets off here.`);
+      const name = you(ride).name;
+      say(ride, t, ride.fakes ? T.endAll(name) : T.endHere(name), { heading: ride.fakes });
       return;
     }
 
     const off = onBus(ride).filter(r => r.fake && r.leavesAt <= k);
     for (const r of off) { r.where = "gone"; r.target = null; }
-    if (off.length) say(ride, t, `${list(off.map(r => r.name))} ${off.length > 1 ? "get" : "gets"} off.`);
+    if (off.length) say(ride, t, T.off(list(off.map(r => r.name), T), off.length));
 
     if (ride.fakes) for (let i = 0; i < NEW_PER_STOP; i++) ride.queue.push(newRider(ride, true).id);
 
@@ -329,12 +271,11 @@
         r.stillSince = t;
       }
     }
-    if (boarding.length) say(ride, t, `${list(boarding.map(id => ride.riders[id].name))} ${boarding.length > 1 ? "get" : "gets"} on.`);
+    if (boarding.length) say(ride, t, T.on(list(boarding.map(id => ride.riders[id].name), T), boarding.length));
 
     const place = ride.queue.indexOf(ride.you);
     if (place >= 0 && (you(ride).boardAt ?? 0) <= k) {
-      say(ride, t, `${room - boarding.length > 0 ? "No more room this time" : "The bus is full"}. ` +
-        `${you(ride).name} keeps their place in the line, ${ordinal(place + 1)}.`);
+      say(ride, t, T.wait(room - boarding.length > 0, you(ride).name, place + 1));
     }
 
     ride.nextStop++;
@@ -377,7 +318,7 @@
         if (r.fake && r.nextActAt < t) {
           t = r.nextActAt;
           next = () => {
-            say(ride, t, actionLine(r, neighbourOf(ride, r)), { row: r.row, kind: "act" });
+            say(ride, t, actionLine(r, neighbourOf(ride, r), ride.lang), { row: r.row, kind: "act" });
             r.nextActAt = t + between(ride, ACT_MIN, ACT_MAX);
             if (r.leavesAt > ride.nextStop || ride.readyFor !== ride.nextStop) maybeChangeSeat(ride, r, t);
           };
@@ -403,6 +344,6 @@
   }
 
   globalThis.BusRules = {
-    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, newRider, ACTIONS, YOUR_ACTIONS, MIXES, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
+    ROWS, SEATS, LANE, STEP, LEAVE_BEFORE, DOOR, MAX_BOARD, NEW_PER_STOP, SIT_AFTER, MIX_EVERY, ACT_MIN, ACT_MAX, STOPS, LEGS, FIRST_STOP_AT, newRider, ACTIONS, YOUR_ACTIONS, MIXES, TEXT, yourAction, NAMES, COLOURS, YOUR_COLOUR, onBus, you, seatTaken, createRide, neighbourOf, actionLine, mixLine, act, move, seatHere, tick, progress,
   };
 })();

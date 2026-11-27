@@ -14,13 +14,14 @@ A bus is a place where we do exactly that. We share a small space with strangers
 
 ## How to play
 
+0. **Choose your language**: English, Français, Español, Deutsch, Čeština, हिन्दी (Hindi) or Lebnēni (Lebanese, written in Arabizi). Riders in different languages share the same bus: each one reads what the others do in their own language.
 1. **At the bus stop**, your travel licence shows your name and your assigned action. Your own name floats above you as "?".
 2. **When the bus arrives**, you get on. Your name is in blue; the other riders' names float above their heads.
 3. **Arrow keys** (or the ‹ › buttons on a phone held sideways) walk you along the bus. Stand still next to a free seat to sit down.
 4. **The button under your window** does your action. Your window tells you what the people around you are doing.
 5. You ride three stops, then get off. The route map at the top shows your four stops.
 
-Add `?speed=40` to the address to make the ride go 40 times faster, for testing.
+Add `?speed=40` to the address to make the ride go 40 times faster, for testing, and `?lang=fr` (or `en`, `es`, `de`, `cs`, `hi`, `leb`) to skip the language question.
 
 ### Riding together
 
@@ -38,6 +39,7 @@ The shared clock only runs at normal speed: with `?speed=40` you ride alone.
     index.html       the page
     sketch.js        the game, drawn with p5.js
     rules.js         the rules: seats, stops, actions and what happens when two actions meet
+    texts.js         every word of the game, in each language
     dreamcore-assets.js / dreamcore-filter.js   the dreamcore filter on the drawings
     live.js          connects the riders to each other with playhtml
   resized-assets/    the drawings, cut to their edges
@@ -63,7 +65,7 @@ Then open http://localhost:8000/3steps2gether-11-27-2026/code/
 
 - **Drawings, concept and design:** sarahbg30
 - **[p5.js](https://p5js.org/)** 1.11.1, for drawing the game (LGPL)
-- **[Gaegu](https://fonts.google.com/specimen/Gaegu)** by JIKJI SOFT and **[Courier Prime](https://fonts.google.com/specimen/Courier+Prime)** by Alan Dague-Greene, from Google Fonts (SIL Open Font License)
+- **[Gaegu](https://fonts.google.com/specimen/Gaegu)** by JIKJI SOFT, **[Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand)** by Patrick Wagesreiter (the accented letters), **[Kalam](https://fonts.google.com/specimen/Kalam)** by the Indian Type Foundry (Hindi) and **[Courier Prime](https://fonts.google.com/specimen/Courier+Prime)** by Alan Dague-Greene, from Google Fonts (SIL Open Font License)
 - **[playhtml](https://github.com/spencerc99/playhtml)** 2.16.0 by Spencer Chang, for sharing the bus between riders (MIT)
 - **[gifenc](https://github.com/mattdesl/gifenc)** by Matt DesLauriers, for the colour palette of the filter (MIT)
 - Code written with help from Claude Code (Anthropic)

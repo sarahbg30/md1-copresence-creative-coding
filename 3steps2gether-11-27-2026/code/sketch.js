@@ -118,6 +118,11 @@ if (FONT !== "Gaegu FR") {
   }
 }
 
+// The language, "en" or "fr": chosen on the first screen (index.html sets
+// window.LANG), or ?lang=fr in the address. The game waits for it.
+const lang = () => window.LANG || "en";
+const TX = () => BusTexts[lang()] || BusTexts.en;   // every word, from texts.js
+
 // Only real people ride: no fake riders. The others are added from live.js.
 const ride = R.createRide({ now: 0, fakes: false });
 const me = R.you(ride);
@@ -319,7 +324,7 @@ const NAME_COLOUR = { blue: "#7fb2ff", orange: "#ff8c26", brown: "#ffbf7a" };
 function styleOf(line) {
   if (line.mine) return LINE_STYLE.mine;
   if (line.kind === "act") return LINE_STYLE.act;
-  if (/^The bus stops|^End of the line/.test(line.text)) return LINE_STYLE.heading;
+  if (line.heading) return LINE_STYLE.heading;
   return LINE_STYLE.info;
 }
 // Names come in capitals from the rules; they're shown as "Lemon". In the
@@ -609,6 +614,9 @@ const MIN_LOADING = 2000;
 function start() {
   const left = MIN_LOADING - millis();
   if (left > 0) { setTimeout(start, left); return; }
+  if (!window.LANG) { setTimeout(start, 100); return; }   // still choosing a language
+  ride.lang = lang();
+  ride.stops = TX().stops;   // without the live bus; joinLoop() puts the real stops
   document.getElementById("loading-bird")?.remove();
   cardPrintPicture();   // ready before the card comes out
   routePicture(0); markerPicture();   // and the route map, before the bus
@@ -617,8 +625,9 @@ function start() {
   lastMillis = millis();
   centreView(0, true);
   meX.set(standX(me.row) - drawnOn[me.colour].stand, 0, true);
-  write({ text: `You are ${me.name}, waiting at ${ride.stops[0]}${busLine ? ` for the ${busLine}` : ""}. Your one thing to do: ${R.YOUR_ACTIONS[me.action]}.`, row: null, mine: true });
-  write({ text: `You ride three stops and get off at ${ride.stops.at(-1)}.`, row: null, mine: true });
+  const todo = R.yourAction(me.action, lang());
+  write({ text: TX().welcome(me.name, ride.stops[0], busLine, todo), row: null, mine: true });
+  write({ text: TX().ride3(ride.stops.at(-1)), row: null, mine: true });
   ready = true;
 }
 
@@ -656,7 +665,7 @@ function draw() {
   for (const line of R.tick(ride, t)) {
     centreView(now);
     write(line);
-    if (line.text.startsWith("The bus stops")) { stoppedUntil = t + STOP_PAUSE * speed; }
+    if (line.stop) { stoppedUntil = t + STOP_PAUSE * speed; }
   }
   centreView(now);
   const stopped = ride.over || (!atStop() && t < stoppedUntil);   // at the bus stop the sky always drifts
@@ -851,18 +860,12 @@ function blurBehindCard(ctx, a) {
 // two short paragraphs and the captions. Laid out on the 1200 x 787
 // card-small.png, drawn once, through the filter.
 const CARD_FONT = "Courier Prime", CARD_INK = "#3b3330";
-const CARD_ROWS = [["Issued to", 210], ["Date of birth", 252], ["Place of issue", 298], ["Date of issue", 343]];
-// A short order for each action, under the action as a heading.
-const CARD_ORDERS = {
-  sun: "Look at the sun.", rain: "Trace one down the glass.", read: "Read something.",
-  think: "Think hard.", bar: "Grab a bar.", wave: "Wave at someone.", photo: "Take a picture.",
-  aura: "Stare someone down.", nails: "Clip your nails.",
-};
-// Each paragraph: [title, text, a bold last line]. The first one is the
-// action you're given for the ride.
+const CARD_ROWS = [210, 252, 298, 343];   // the baseline of each label, from the top
+// Each paragraph: [title, text]. The first one is the action you're given for
+// the ride, with its short order. The words are in texts.js (card, orders).
 const CARD_PARAS = () => [
-  [R.YOUR_ACTIONS[me.action].toUpperCase(), CARD_ORDERS[me.action]],
-  ["IMPORTANT", "The holder of this licence takes three steps together with strangers before getting off, unless the bus says otherwise."],
+  [R.yourAction(me.action, lang()).toUpperCase(), TX().orders[me.action]],
+  [TX().card.head, TX().card.important],
 ];
 let cardPrint = null;
 function cardPrintPicture() {
@@ -877,11 +880,13 @@ function cardPrintPicture() {
   const font = (style, px) => { g.font = `${style} ${px}px "${CARD_FONT}"`; };
   const dots = (x0, x1, y) => { for (let x = x0; x < x1; x += 6) g.fillRect(x, y - 1.5, 2, 2); };
   g.textAlign = "center";
-  font("bold", 17); g.fillText("PERMANENT LICENSE OF TRAVEL", MID, 158);
-  font("bold", 15); g.fillText("NO. 3S2G-2026", MID, 180);
+  const words = TX().card;
+  font("bold", 17); g.fillText(words.title, MID, 158);
+  font("bold", 15); g.fillText(words.number, MID, 180);
   g.textAlign = "left";
   font("", 14);
-  for (const [label, y] of CARD_ROWS) {
+  for (const [i, y] of CARD_ROWS.entries()) {
+    const label = words.rows[i];
     g.fillText(label, L, y);
     dots(L + g.measureText(label).width + 6, R, y);
   }
@@ -913,8 +918,8 @@ function cardPrintPicture() {
   dots(L, R, 678);
   g.textAlign = "center";
   font("italic", 12);
-  g.fillText("Signature of authorized traveler", MID, 696);
-  g.fillText("Photograph of authorized traveler", 345, 655);
+  g.fillText(words.signature, MID, 696);
+  g.fillText(words.photo, 345, 655);
   let frames = [c];
   if (DreamAssets.on) frames = DreamAssets.apply(g.getImageData(0, 0, c.width, c.height), 1, true).map(d => {
     const f = document.createElement("canvas");
@@ -968,7 +973,7 @@ function drawTurn() {
   textAlign(CENTER, CENTER);
   textSize(28);
   textLeading(36);
-  text("turn your phone sideways\nto ride the bus", width / 2, height / 2);
+  text(TX().turn, width / 2, height / 2);
 }
 
 // The road scrolls right, slow and choppy (6 jumps a second, two tiles a
@@ -1358,7 +1363,7 @@ const cqw = VIEW_W / 100;
 
 function drawButtons(now) {
   const touch = touchScreen();
-  const label = ride.over ? "next bus" : R.YOUR_ACTIONS[me.action];
+  const label = ride.over ? TX().nextBus : R.yourAction(me.action, lang());
   const enabled = ride.over || me.where === "bus";
   const size = (touch ? 3 : 2.4) * cqw;
   textFont(FONT);
@@ -1414,7 +1419,7 @@ function pressAction() {
   if (ride.over) { location.reload(); return; }
   const lines = R.act(ride, clock());
   lines.forEach(write);
-  if (lines.length) window.Live?.send({ lines: lines.map(l => ({ text: l.text, kind: l.kind, row: l.row })) });
+  if (lines.length) window.Live?.send({ lines: lines.map(l => ({ text: l.text, texts: l.texts, kind: l.kind, row: l.row })) });
 }
 
 // Walk one row: arrow keys on a computer, the ‹ › buttons on a phone.
@@ -1510,5 +1515,8 @@ function syncPeople() {
 // Someone else pressed their action: their lines, in your window.
 window.onLiveAct = ({ pid, loop, lines }) => {
   if (!ready || !others.has(pid)) return;
-  for (const l of lines) write({ t: clock(), text: l.text, row: l.row, kind: l.kind, mine: l.kind === "mix" && l.text.includes(me.name) });
+  for (const l of lines) {
+    const text = l.texts?.[lang()] ?? l.text;   // in your language when they sent it in both
+    write({ t: clock(), text, row: l.row, kind: l.kind, mine: l.kind === "mix" && text.includes(me.name) });
+  }
 };
