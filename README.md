@@ -14,7 +14,7 @@ A bus is a place where we do exactly that. We share a small space with strangers
 
 ## How to play
 
-0. **Choose your language**: once the game has loaded, clouds and birds slowly come in from the right, the birds with the languages in their feet: Čeština, Deutsch, English, Español, Français, Lebnēni (Lebanese, written in Arabizi) and हिन्दी (Hindi). Riders in different languages share the same bus: each one reads what the others do in their own language, with the riders' names and the stops (gare, aéroport…) translated too.
+0. **Choose your language**: once the game has loaded, clouds drift in very slowly from the left and birds come in from the right with the languages in their feet: Čeština, Deutsch, English, Español, Français, Lebnēni (Lebanese, written in Arabizi) and हिन्दी (Hindi). Riders in different languages share the same bus: each one reads what the others do in their own language, with the riders' names and the stops (gare, aéroport…) translated too.
 1. **At the bus stop**, your travel licence shows your name and your assigned action. Your own name floats above you as "?".
 2. **When the bus arrives**, you get on. Your name is in blue; the other riders' names float above their heads.
 3. **Arrow keys** (or the ‹ › buttons on a phone held sideways) walk you along the bus. Stand still next to a free seat to sit down.
