@@ -51,7 +51,7 @@
   // The same actions said to you, for your button.
   const YOUR_ACTIONS = {
     sun: "contemplate the sun",
-    rain: "follow the raindrops with your fingers",
+    rain: "follow raindrops",
     read: "pretend to read",
     think: "think very hard",
     bar: "try to grab the bar",

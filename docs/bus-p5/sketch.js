@@ -772,7 +772,7 @@ const CARD_FONT = "Courier Prime", CARD_INK = "#3b3330";
 const CARD_ROWS = [["Issued to", 210], ["Date of birth", 252], ["Place of issue", 298], ["Date of issue", 343]];
 // A short order for each action, under the action as a heading.
 const CARD_ORDERS = {
-  sun: "Look at the sun.", rain: "Follow the raindrops.", read: "Read something.",
+  sun: "Look at the sun.", rain: "Trace one down the glass.", read: "Read something.",
   think: "Think hard.", bar: "Grab a bar.", wave: "Wave at someone.", photo: "Take a picture.",
   aura: "Stare someone down.", nails: "Clip your nails.",
 };
@@ -804,25 +804,30 @@ function cardPrintPicture() {
     dots(L + g.measureText(label).width + 6, R, y);
   }
   let y = 390;
-  const lines = (text, style) => {
-    font(style, 13);
+  const lines = (text, style, px = 13) => {
+    font(style, px);
     let line = "";
     for (const word of text.split(" ")) {
       const next = line ? line + " " + word : word;
-      if (g.measureText(next).width > R - L && line) { g.fillText(line, L, y); y += 17; line = word; }
+      if (g.measureText(next).width > R - L && line) { g.fillText(line, L, y); y += px + 4; line = word; }
       else line = next;
     }
     g.fillText(line, L, y);
   };
-  for (const [title, text, bold] of CARD_PARAS()) {
+  CARD_PARAS().forEach(([title, text, bold], i) => {
+    const big = i === 0;                  // your action, bigger
     g.textAlign = "center";
-    font("bold", 14); g.fillText(title, MID, y);
-    y += 22;
+    let px = big ? 22 : 14;
+    font("bold", px);
+    while (g.measureText(title).width > R - L && px > 12) font("bold", --px);   // long actions shrink to fit
+    g.fillText(title, MID, y);
+    y += big ? 32 : 22;
+    if (big) { font("", 20); g.fillText(text, MID, y); y += 46; return; }
     g.textAlign = "left";
     lines(text, "");
     if (bold) { y += 19; lines(bold, "bold"); }
     y += 30;
-  }
+  });
   dots(L, R, 678);
   g.textAlign = "center";
   font("italic", 12);
