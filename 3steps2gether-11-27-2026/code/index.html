@@ -105,7 +105,7 @@
     // One bird per language, in alphabetical order (Čeština, Deutsch, English…),
     // each to its own spot, scattered rather than in a row (percent of the screen).
     const byName = Object.entries(BusTexts).sort((a, b) => a[1].name.localeCompare(b[1].name, "en", { sensitivity: "base" }));
-    const SPOTS = [[16, 52], [38, 44], [61, 56], [84, 46], [27, 77], [51, 70], [75, 81]];
+    const SPOTS = [[16, 52], [38, 44], [68, 58], [84, 46], [27, 77], [51, 70], [75, 81]];
     const SIZES = [1.1, 0.8, 1.25, 0.9, 1.35, 0.75, 1];   // each bird its own size
     // The clouds: [drawing, left %, top %, width in vmin], in the order they come in from the left.
     const CLOUDS = [[2, 0, 6, 46], [1, 22, 30, 24], [4, -8, 66, 38], [4, 66, 2, 40], [3, 80, 30, 30], [2, 62, 74, 48]];
@@ -152,9 +152,9 @@
           g.restore();
         };
         const go = leftAt ? ease(step(gone, 150) / 800) : 0;
-        // The loading bird, now with the filter, goes up to make room.
-        const up = ease(step(t, 300) / 1200), hop = (Math.floor(now / 800) % 2 ? -1 : 1) * 0.5 * u;
-        drawBird(W / 2 - go * 1.3 * W, lerp(0.5, 0.22, up) * H + hop - go * 0.15 * H, 22 * u, 0);
+        // The loading bird, now with the filter, stays in the middle.
+        const hop = (Math.floor(now / 800) % 2 ? -1 : 1) * 0.5 * u;
+        drawBird(W / 2 - go * 1.3 * W, 0.5 * H + hop - go * 0.15 * H, 22 * u, 0);
         const size = Math.max(54, Math.min(16 * u, 130));
         byName.forEach((_, i) => {
           const [sx, sy] = SPOTS[i], bh = size * SIZES[i];
